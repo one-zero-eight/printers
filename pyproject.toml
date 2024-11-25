@@ -19,6 +19,7 @@ pre-commit = "^3.8.0"
 pydantic = "^2.9.2"
 ruff = "^0.6.7"
 uvicorn = "^0.31.0"
+pycups = "^2.0.4"
 
 [tool.poetry.group.mongo.dependencies]
 beanie = "^1.26.0"

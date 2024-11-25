@@ -561,6 +561,16 @@ files = [
 ]
 
 [[package]]
+name = "pycups"
+version = "2.0.4"
+description = "Python bindings for libcups"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pycups-2.0.4.tar.gz", hash = "sha256:843e385c1dbf694996ca84ef02a7f30c28376035588f5fbeacd6bae005cf7c8d"},
+]
+
+[[package]]
 name = "pydantic"
 version = "2.10.1"
 description = "Data validation using Python type hints"
@@ -953,4 +963,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "4ccee3c82b889a84db213ab3669da24e70abf99f1142ed440aa30132c3f33ceb"
+content-hash = "9da1eef6b62a1773d1b083c0d0f45d7030b9ae0290331725e6938eb96a05bde0"
