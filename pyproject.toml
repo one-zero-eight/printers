@@ -15,10 +15,10 @@ fastapi = "^0.115.0"
 fastapi-swagger = "^0.2.3"
 gunicorn = "^23.0.0"
 httpx = "^0.27.2"
-pre-commit = "^3.8.0"
+pre-commit = "^4.0.1"
 pydantic = "^2.9.2"
-ruff = "^0.6.7"
-uvicorn = "^0.31.0"
+ruff = "^0.8.0"
+uvicorn = "^0.32.1"
 pycups = "^2.0.4"
 
 [tool.poetry.group.mongo.dependencies]
