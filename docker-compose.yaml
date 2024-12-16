@@ -9,7 +9,7 @@ services:
     restart: always
     ports:
       - "8000:8000"
-  
+
   db:
     # See more: https://registry.hub.docker.com/_/mongo
     image: "mongo:8.0"
@@ -26,7 +26,11 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-mongoadmin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-secret}
-  
+
+  unoserver:
+    image: ghcr.io/unoconv/unoserver-docker
+    ports:
+      - 2003:2003
 
 volumes:
   mongodb:

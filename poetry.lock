@@ -923,6 +923,20 @@ files = [
 ]
 
 [[package]]
+name = "unoserver"
+version = "3.1"
+description = "A server for file conversions with Libre Office"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "unoserver-3.1-py3-none-any.whl", hash = "sha256:d50989f86358a0792ecabfbe7556a2d1090fc0fb45a3b83fff4792347b8880eb"},
+    {file = "unoserver-3.1.tar.gz", hash = "sha256:3df6470a7a2492fa4841d874ad24b62dec3dee116f6beffbb4b41cf48eedb828"},
+]
+
+[package.extras]
+devenv = ["black", "check-manifest", "flake8", "pyroma", "pytest", "pytest-cov", "zest.releaser"]
+
+[[package]]
 name = "uvicorn"
 version = "0.31.1"
 description = "The lightning-fast ASGI server."
@@ -963,4 +977,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "9da1eef6b62a1773d1b083c0d0f45d7030b9ae0290331725e6938eb96a05bde0"
+content-hash = "5cb6a42f88cddc65520d43d79ff8e3d5d0401b834f1cfe92984c8bf87ea0c4ba"
