@@ -13,3 +13,5 @@ static
 ### Sensible ###
 /private.pem
 /public.pem
+
+/tmp

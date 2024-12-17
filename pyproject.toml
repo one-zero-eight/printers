@@ -21,6 +21,7 @@ ruff = "^0.6.7"
 uvicorn = "^0.31.0"
 pycups = "^2.0.4"
 unoserver = "^3.1"
+python-multipart = "^0.0.20"
 
 [tool.poetry.group.mongo.dependencies]
 beanie = "^1.26.0"

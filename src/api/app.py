@@ -59,6 +59,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from src.modules.printing.routes import router as router_printing  # noqa: E402
 from src.modules.users.routes import router as router_users  # noqa: E402
 
 app.include_router(router_users)
+app.include_router(router_printing)

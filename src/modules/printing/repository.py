@@ -1,4 +1,4 @@
-__all__ = ["printing_repository"]
+__all__ = ["printing_repository", "PrintingOptions", "JobAttributes"]
 
 from typing import Literal
 
@@ -9,11 +9,11 @@ from pydantic import BaseModel, Field
 class PrintingOptions(BaseModel):
     copies: str | None = None
     "Count of copies"
-    page_ranges: str | None = Field(alias="pages-ranges", default=None)
+    page_ranges: str | None = Field(None, alias="pages-ranges")
     "Which page ranges to print"
     sides: Literal["one-sided", "two-sided-long-edge"] | None = None
     "One-sided or double-sided printing"
-    number_up: Literal["1", "4", "9"] | None = Field(alias="number-up", default=None)
+    number_up: Literal["1", "4", "9"] | None = Field(None, alias="number-up")
     "Count of pages on a list"
 
 
@@ -27,8 +27,8 @@ class JobAttributes(BaseModel):
         "job-printing",
     ] = Field(alias="job-state-reasons")
     "The current state of a job from the getJobAttributes function"
-    printer_state: list[str] | None = Field(alias="job-printer-state-reasons", default=None)
-    "The current state of printer: 'cups-waiting-for-job-completed', 'media-needed-warning', 'media-empty-error', 'input-tray-missing'"
+    printer_state: list[str] | None = Field(None, alias="job-printer-state-reasons")
+    "The current state of printer: 'cups-waiting-for-job-completed', 'media-needed-warning', 'media-empty-error', 'input-tray-missing', 'media-empty-report'"
 
 
 # noinspection PyMethodMayBeStatic

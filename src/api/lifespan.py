@@ -1,7 +1,9 @@
 __all__ = ["lifespan"]
 
 import asyncio
+import glob
 import json
+import os
 from contextlib import asynccontextmanager
 
 from beanie import init_beanie
@@ -47,6 +49,11 @@ async def lifespan(_app: FastAPI):
     from src.modules.innohassle_accounts import innohassle_accounts  # noqa: E402
 
     await innohassle_accounts.update_key_set()
+
+    for rubbish in glob.glob("tmp/*"):
+        if "gitkeep" not in rubbish:
+            os.remove(rubbish)
+
     yield
 
     # -- Application shutdown --
