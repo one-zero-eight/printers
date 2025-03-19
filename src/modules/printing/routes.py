@@ -7,13 +7,13 @@ from fastapi.exceptions import HTTPException
 from starlette.responses import FileResponse
 
 from src.modules.converting.repository import converting_repository
-from src.modules.printing.repository import PrintingOptions, printing_repository
+from src.modules.printing.repository import JobAttributes, PrintingOptions, printing_repository
 
 router = APIRouter(prefix="/print", tags=["Print"])
 
 
 @router.get("/job_status")
-async def job_status(job_id: int) -> str:
+async def job_status(job_id: int) -> JobAttributes:
     """
     Returns the status of a job
     """

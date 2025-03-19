@@ -84,8 +84,7 @@ def check_and_prompt_api_jwt_token():
         "generate-service-token?sub=local-dev&scopes=users&only_for_me=true"
     )
     settings = get_settings()
-    accounts = settings.get("accounts", {})
-    api_jwt_token = accounts.get("api_jwt_token")
+    api_jwt_token = settings.get("innohassle_api_jwt_token")
 
     if not api_jwt_token or api_jwt_token == "...":
         print("⚠️ `accounts.api_jwt_token` is missing in `settings.yaml`.")

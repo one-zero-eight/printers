@@ -1,4 +1,24 @@
 services:
+  cups:
+    image: ydkn/cups:latest
+    container_name: cups
+    restart: always
+    ports:
+      - "631:631"
+    environment:
+      - ADMIN_PASSWORD=${CUPS_SERVER_ADMIN_PASSWORD:-admin}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bash",
+          "-c",
+          '[[ "$(lpstat -r)"  == "scheduler is running" ]] && exit $?',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   api:
     build: .
     volumes:
@@ -6,7 +26,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      cups:
+        condition: service_healthy
     restart: always
+    environment:
+      - DATABASE_URI=${DATABASE_URI:-mongodb://mongoadmin:secret@db:27017/db?authSource=admin}
+      - CUPS_SERVER_HOST=${CUPS_SERVER_HOST:-cups}
+      - CUPS_SERVER_PORT=${CUPS_SERVER_PORT:-631}
+      - CUPS_SERVER_ADMIN_PASSWORD=${CUPS_SERVER_ADMIN_PASSWORD:-admin}
+      - INNOHASSLE_API_URL=${INNOHASSLE_API_URL:-https://api.innohassle.ru/accounts/v0}
+      - INNOHASSLE_API_JWT_TOKEN=${INNOHASSLE_API_JWT_TOKEN:-}
     ports:
       - "8000:8000"
 

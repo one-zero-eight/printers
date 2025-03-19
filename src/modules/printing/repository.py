@@ -5,6 +5,8 @@ from typing import Literal
 import cups
 from pydantic import BaseModel, Field
 
+from src.config import settings
+
 
 class PrintingOptions(BaseModel):
     copies: str | None = None
@@ -21,9 +23,9 @@ class JobAttributes(BaseModel):
     job_state: Literal[
         "job-completed-successfully",
         "none",
-        "job-completed-successfully",
         "media-empty-report",
         "canceled-at-device",
+        "job-canceled-by-user",
         "job-printing",
     ] = Field(alias="job-state-reasons")
     "The current state of a job from the getJobAttributes function"
@@ -34,7 +36,12 @@ class JobAttributes(BaseModel):
 # noinspection PyMethodMayBeStatic
 class PrintingRepository:
     def __init__(self):
-        self.server = cups.Connection()
+        cups.setServer(settings.cups_server_host)
+        cups.setPort(settings.cups_server_port)
+        if settings.cups_server_admin_password:
+            cups.setUser(settings.cups_server_admin_user)
+            cups.setPasswordCB(lambda: settings.cups_server_admin_password.get_secret_value())
+        self.server = cups.Connection(settings.cups_server_host, settings.cups_server_port)
 
     def print_file(self, printer_name: str, file_name: str, title: str, options: PrintingOptions) -> int:
         options_dict = options.model_dump(by_alias=True, exclude_none=True)
