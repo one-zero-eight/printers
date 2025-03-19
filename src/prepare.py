@@ -60,14 +60,14 @@ def ensure_pre_commit_hooks():
 
     try:
         subprocess.run(
-            ["poetry", "run", "pre-commit", "install", "--install-hooks", "-t", "pre-commit", "-t", "commit-msg"],
+            ["uvx", "pre-commit", "install", "--install-hooks", "-t", "pre-commit", "-t", "commit-msg"],
             check=True,
             text=True,
         )
         print("✅ Pre-commit hooks installed successfully.")
     except subprocess.CalledProcessError as e:
         print(
-            f"❌ Error setting up pre-commit hooks:\n{e.stderr}\n  Please, setup it manually with `poetry run pre-commit install --install-hooks -t pre-commit -t commit-msg`"
+            f"❌ Error setting up pre-commit hooks:\n{e.stderr}\n  Please, setup it manually with `uvx pre-commit install --install-hooks -t pre-commit -t commit-msg`"
         )
 
 
@@ -84,8 +84,7 @@ def check_and_prompt_api_jwt_token():
         "generate-service-token?sub=local-dev&scopes=users&only_for_me=true"
     )
     settings = get_settings()
-    accounts = settings.get("accounts", {})
-    api_jwt_token = accounts.get("api_jwt_token")
+    api_jwt_token = settings.get("innohassle_api_jwt_token")
 
     if not api_jwt_token or api_jwt_token == "...":
         print("⚠️ `accounts.api_jwt_token` is missing in `settings.yaml`.")

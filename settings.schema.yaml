@@ -1,24 +1,5 @@
 $schema: https://json-schema.org/draft-07/schema
 $defs:
-  Accounts:
-    additionalProperties: false
-    description: InNoHassle Accounts integration settings
-    properties:
-      api_url:
-        default: https://api.innohassle.ru/accounts/v0
-        description: URL of the Accounts API
-        title: Api Url
-        type: string
-      api_jwt_token:
-        description: JWT token for accessing the Accounts API as a service
-        format: password
-        title: Api Jwt Token
-        type: string
-        writeOnly: true
-    required:
-    - api_jwt_token
-    title: Accounts
-    type: object
   Environment:
     enum:
     - development
@@ -29,9 +10,11 @@ additionalProperties: false
 description: Settings for the application.
 properties:
   $schema:
+    anyOf:
+    - type: string
+    - type: 'null'
     default: null
     title: $Schema
-    type: string
   environment:
     $ref: '#/$defs/Environment'
     default: development
@@ -56,10 +39,42 @@ properties:
       are allowed. Specify as a regex: `https://.*.innohassle.ru`'
     title: Cors Allow Origin Regex
     type: string
-  accounts:
-    $ref: '#/$defs/Accounts'
+  cups_server_host:
+    default: 127.0.0.1
+    description: CUPS server host
+    title: Cups Server Host
+    type: string
+  cups_server_port:
+    default: 631
+    description: CUPS server port
+    title: Cups Server Port
+    type: integer
+  cups_server_admin_user:
+    default: admin
+    description: CUPS server admin user
+    title: Cups Server Admin User
+    type: string
+  cups_server_admin_password:
+    anyOf:
+    - format: password
+      type: string
+      writeOnly: true
+    - type: 'null'
+    default: null
+    title: Cups Server Admin Password
+  innohassle_api_url:
+    default: https://api.innohassle.ru/accounts/v0
+    description: URL of the Accounts API
+    title: Innohassle Api Url
+    type: string
+  innohassle_api_jwt_token:
+    description: JWT token for accessing the Accounts API as a service
+    format: password
+    title: Innohassle Api Jwt Token
+    type: string
+    writeOnly: true
 required:
 - database_uri
-- accounts
+- innohassle_api_jwt_token
 title: Settings
 type: object

@@ -11,7 +11,7 @@ This is the FastAPI ASGI application.
 
 ### Technologies
 
-- [Python 3.12](https://www.python.org/downloads/) & [Poetry](https://python-poetry.org/docs/)
+- [Python 3.12](https://www.python.org/downloads/) & [uv](https://docs.astral.sh/uv/)
 - [FastAPI](https://fastapi.tiangolo.com/)
 - Database and ORM: [MongoDB](https://www.mongodb.com/) & [Beanie](https://beanie-odm.dev/)
 - Formatting and linting: [Ruff](https://docs.astral.sh/ruff/), [pre-commit](https://pre-commit.com/)
@@ -22,15 +22,15 @@ This is the FastAPI ASGI application.
 
 ### Set up for development
 
-1. Install [Python 3.12+](https://www.python.org/downloads/), [Poetry](https://python-poetry.org/docs/),
+1. Install [Python 3.12+](https://www.python.org/downloads/), [uv](https://docs.astral.sh/uv/),
    [Docker](https://docs.docker.com/engine/install/)
-2. Install project dependencies with [Poetry](https://python-poetry.org/docs/cli/#install).
+2. Install project dependencies with [uv](https://docs.astral.sh/uv/cli/#install).
    ```bash
-   poetry install
+   uv sync
    ```
 3. Start development server:
    ```bash
-   poetry run python -m src.api --reload
+   uv run -m src.api --reload
    ```
    > Follow provided instructions if needed
 4. Open in the browser: http://localhost:8000
@@ -72,12 +72,11 @@ We use Docker with Docker Compose plugin to run the service on servers.
 
 ## Project dependencies
 
-1. Run `poetry update` to update all dependencies (it may update nothing, so double-check)
-2. Run `poetry show --outdated --all` to check for outdated dependencies
-3. Run `poetry add <package>@latest` to add a new dependency if needed
+1. Run `uv show --outdated --all` to check for outdated dependencies
+2. Run `uv add <package>@latest` to add a new dependency if needed
 
 ## Pre-commit hooks
 
-1. Run `poetry run pre-commit autoupdate`
+1. Run `uvx pre-commit autoupdate`
 
 Also, Dependabot will help you to keep your dependencies up-to-date, see [dependabot.yml](.github/dependabot.yml).

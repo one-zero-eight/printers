@@ -16,14 +16,14 @@ repos:
     rev: v0.7.4
     hooks:
       - id: ruff
-        args: [ --fix, --exit-zero ]
+        args: [--fix, --exit-zero]
         name: "ruff: fixing"
       - id: ruff-format
         name: "ruff: formatting"
 
   # Lint Python files with Ruff
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.7.4
+    rev: v0.11.0
     hooks:
       - id: ruff
         name: "ruff: linting"
@@ -44,19 +44,19 @@ repos:
       - id: generate-settings-schema
         name: generate settings.schema.yaml
         language: system
-        entry: poetry run python ./scripts/generate_settings_schema.py
+        entry: uv run ./scripts/generate_settings_schema.py
         pass_filenames: false
         files: ^src/config_schema.py$
-      - id: poetry-check
-        name: poetry check
-        entry: poetry check
+      - id: uv-check
+        name: uv lockfile check
+        entry: uv lock --check
         language: system
         pass_filenames: false
         files: "pyproject.toml"
       - id: alembic-auto-migrations
         name: generate alembic auto migrations files
         language: system
-        entry: poetry run python ./scripts/alembic_auto_migrations.py
+        entry: uv run ./scripts/alembic_auto_migrations.py
         pass_filenames: false
         files: storages/
         stages:

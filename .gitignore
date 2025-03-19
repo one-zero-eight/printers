@@ -9,9 +9,13 @@ __pycache__
 .env
 settings.yaml
 static
+.venv
 
 ### Sensible ###
 /private.pem
 /public.pem
 
 /tmp
+
+### macOS stuff ###
+.DS_Store

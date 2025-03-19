@@ -56,5 +56,5 @@ class InNoHassleAccounts:
 
 
 innohassle_accounts = InNoHassleAccounts(
-    api_url=settings.accounts.api_url, api_jwt_token=settings.accounts.api_jwt_token.get_secret_value()
+    api_url=settings.innohassle_api_url, api_jwt_token=settings.innohassle_api_jwt_token.get_secret_value()
 )
