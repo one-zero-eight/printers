@@ -1,63 +1,37 @@
-# Based on https://github.com/svx/poetry-fastapi-docker/blob/main/Dockerfile
+# Based on https://github.com/astral-sh/uv-docker-example/blob/main/multistage.Dockerfile
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=0
 
-###########################################################
-# Base Python image. Set shared environment variables.
-FROM python:3.12-slim-bullseye AS base
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=off \
-    PIP_DISABLE_PIP_VERSION_CHECK=on \
-    PIP_DEFAULT_TIMEOUT=100 \
-    POETRY_HOME="/opt/poetry" \
-    POETRY_VIRTUALENVS_IN_PROJECT=true \
-    POETRY_NO_INTERACTION=1 \
-    POETRY_INSTALLER_MAX_WORKERS=10 \
-    PYSETUP_PATH="/opt/pysetup" \
-    VENV_PATH="/opt/pysetup/.venv"
+# pycups is sources-only so we have to build it
+RUN apt-get update && apt-get install -y --no-install-recommends libcups2-dev gcc && rm -rf /var/lib/apt/lists/*
 
-ENV PATH="$POETRY_HOME/bin:$VENV_PATH/bin:$PATH"
+WORKDIR /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+
+ADD . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
 
-###########################################################
-# Builder stage. Build dependencies.
-FROM base AS builder
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y \
-        build-essential \
-        curl \
-        netcat \
-        vim \
-    && rm -rf /var/lib/apt/lists/*
+# Then, use a final image without uv
+FROM python:3.12-slim-bookworm
+# It is important to use the image that matches the builder, as the path to the
+# Python executable must be the same, e.g., using `python:3.11-slim-bookworm`
+# will fail.
+RUN groupadd -g 1500 app && \
+    useradd -m -u 1500 -g app app
 
-# Install Poetry. Respects $POETRY_VERSION and $POETRY_HOME
-ENV POETRY_VERSION=1.8.3
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN curl -sS https://install.python-poetry.org | POETRY_HOME=${POETRY_HOME} python3 - --version ${POETRY_VERSION} && \
-    chmod a+x /opt/poetry/bin/poetry
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libcups2 cups-client && rm -rf /var/lib/apt/lists/*
 
-# We copy our Python requirements here to cache them
-# and install only runtime deps using poetry
-WORKDIR $PYSETUP_PATH
-COPY ./poetry.lock ./pyproject.toml ./
-RUN poetry install --no-interaction
-
-
-###########################################################
-# Production stage. Copy only runtime deps that were installed in the Builder stage.
-FROM base AS production
-
-COPY --from=builder $VENV_PATH $VENV_PATH
-
-COPY --chmod=755 ./deploy/docker-entrypoint.sh /
-
-# Create user with the name poetry
-RUN groupadd -g 1500 poetry && \
-    useradd -m -u 1500 -g poetry poetry
-
-COPY --chown=poetry:poetry . /code
-USER poetry
-WORKDIR /code
+ENV PATH="/app/.venv/bin:$PATH"
+# Copy the application from the builder
+COPY --from=builder --chown=app:app /app /app
+USER app
+WORKDIR /app
 
 EXPOSE 8000
-ENTRYPOINT [ "/docker-entrypoint.sh" ]
-CMD [ "gunicorn", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "1", "src.api.app:app" ]
+CMD [ "gunicorn", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "4", "src.api.app:app" ]

@@ -44,19 +44,19 @@ repos:
       - id: generate-settings-schema
         name: generate settings.schema.yaml
         language: system
-        entry: poetry run python ./scripts/generate_settings_schema.py
+        entry: uv run ./scripts/generate_settings_schema.py
         pass_filenames: false
         files: ^src/config_schema.py$
-      - id: poetry-check
-        name: poetry check
-        entry: poetry check
+      - id: uv-check
+        name: uv lockfile check
+        entry: uv lock --check
         language: system
         pass_filenames: false
         files: "pyproject.toml"
       - id: alembic-auto-migrations
         name: generate alembic auto migrations files
         language: system
-        entry: poetry run python ./scripts/alembic_auto_migrations.py
+        entry: uv run ./scripts/alembic_auto_migrations.py
         pass_filenames: false
         files: storages/
         stages:

@@ -2,7 +2,7 @@ services:
   api:
     build: .
     volumes:
-      - "./settings.yaml:/code/settings.yaml:ro" # Read-only settings file
+      - "./settings.yaml:/app/settings.yaml:ro" # Read-only settings file
     depends_on:
       db:
         condition: service_healthy

@@ -6,7 +6,8 @@ updates:
     schedule:
       interval: "weekly"
     groups:
-      poetry:
+      # TODO: switch to uv
+      poetry: # currently can't switch to uv because of https://github.com/dependabot/dependabot-core/issues/10478
         patterns:
           - "*"
 
