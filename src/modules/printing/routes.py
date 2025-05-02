@@ -49,7 +49,7 @@ async def prepare_printing(file: UploadFile) -> str:
             tempfiles[out_f.name] = out_f
         return out_f.name
     else:
-        raise HTTPException(400, "Unsupported format")
+        raise HTTPException(400, f"no support of the {ext} format")
 
 
 @router.post("/print", responses={404: {"description": "No such file"}})
