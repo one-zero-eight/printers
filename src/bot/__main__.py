@@ -1,10 +1,11 @@
 import asyncio
 import io
+from typing import Any
 
-from aiogram import Bot, Dispatcher, F, Router, html
+from aiogram import Bot, Dispatcher, F, Router, html, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.filters import Command
+from aiogram.filters import Command, Filter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
@@ -16,10 +17,13 @@ from aiogram.types import (
     Message,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
+    TelegramObject,
+    User,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.bot.api import api_client
+from src.config import settings
 
 TOKEN = "PASTE_YOUR_TOKEN"
 
@@ -47,8 +51,64 @@ class SelectPrinter(StatesGroup):
     selection = State()
 
 
-@router.message(Command("start"))
+class InnohassleUserFilter(Filter):
+    async def __call__(self, event: TelegramObject, event_from_user: User) -> bool | dict[str, Any]:
+        telegram_id = event_from_user.id
+        innohassle_user_id = await api_client.get_innohassle_user_id(telegram_id)
+        if innohassle_user_id is None:
+            return False
+        return {"innohassle_user_id": innohassle_user_id}
+
+
+@router.message(Command("start"), InnohassleUserFilter())
 async def command_start_handler(message: Message):
+    await message.answer(
+        f"Hello, {html.bold(message.from_user.first_name)}\n\n"
+        f"This bot will help you to print with {html.bold("Innopolis public printers!")}\n\n"
+        f"Use keyboard buttons to setup a printer, get more information, or start printing!",
+        reply_markup=main_menu_reply_keyboard,
+    )
+
+
+@router.message(Command("start"), ~InnohassleUserFilter())
+async def command_start_not_registered_handler(message: Message, bot: Bot, event_from_user: types.User):
+    connect_kb = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(
+                    text="Connect",
+                    login_url=types.LoginUrl(
+                        url="https://innohassle.ru/account/connect-telegram" + f"?bot={(await bot.me()).username}",
+                        forward_text="Connect your telegram",
+                        bot_username="InNoHassleBot",
+                    ),
+                )
+            ]
+        ]
+    )
+    push_kb = types.ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                types.KeyboardButton(
+                    text="I have connected telegram to InNoHassle account.",
+                )
+            ]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+    await bot.send_message(
+        event_from_user.id,
+        "To continue, you need to connect your Telegram account to the InNoHassle account.",
+        reply_markup=connect_kb,
+    )
+    # wait for the user to connect the account
+    await asyncio.sleep(3)
+    await bot.send_message(
+        event_from_user.id,
+        "If you have already connected your account, just press the button.",
+        reply_markup=push_kb,
+    )
     await message.answer(
         f"Hello, {html.bold(message.from_user.first_name)}\n\n"
         f"This bot will help you to print with {html.bold("Innopolis public printers!")}\n\n"
@@ -102,7 +162,7 @@ async def print_work_confirmation(message: Message, state: FSMContext):
         await message.bot.download(file=file_telegram_identifier, destination=file)
     else:
         file = io.BytesIO(message.text.encode("utf8"))
-    status, detail = await api_client.prepare_document(file_telegram_name, file)
+    status, detail = await api_client.prepare_document(message.from_user.id, file_telegram_name, file)
     if status is None:
         await message.answer(
             f"Unfortunately, we cannot print this file yet\n"
@@ -112,7 +172,7 @@ async def print_work_confirmation(message: Message, state: FSMContext):
                                                 ".jpg\n.md\n.bmp\n.xlsx\n.xls\n.odt\n.ods")}"
         )
         return
-    document = await api_client.get_prepared_document(detail)
+    document = await api_client.get_prepared_document(message.from_user.id, detail)
     await message.answer_document(
         (
             document := BufferedInputFile(
@@ -151,7 +211,7 @@ async def callback_printer_selected(callback: CallbackQuery, state: FSMContext) 
 
 
 async def main() -> None:
-    bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot = Bot(token=settings.bot.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dispatcher.include_router(router)
     await dispatcher.start_polling(bot)
 

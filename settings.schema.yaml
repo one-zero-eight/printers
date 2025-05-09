@@ -19,12 +19,88 @@ $defs:
     - api_jwt_token
     title: Accounts
     type: object
-  Environment:
-    enum:
-    - development
-    - production
-    title: Environment
-    type: string
+  ApiSettings:
+    additionalProperties: false
+    properties:
+      app_root_path:
+        default: ''
+        description: Prefix for the API path (e.g. "/api/v0")
+        title: App Root Path
+        type: string
+      database_uri:
+        description: MongoDB database settings
+        examples:
+        - mongodb://mongoadmin:secret@localhost:27017/db?authSource=admin
+        - mongodb://mongoadmin:secret@db:27017/db?authSource=admin
+        format: password
+        title: Database Uri
+        type: string
+        writeOnly: true
+      unoserver_server:
+        default: 127.0.0.1
+        description: unoserver server network
+        title: Unoserver Server
+        type: string
+      unoserver_port:
+        default: 2003
+        description: Unoserver server network port
+        title: Unoserver Port
+        type: integer
+      printers_list:
+        items:
+          $ref: '#/$defs/Printer'
+        title: Printers List
+        type: array
+      cors_allow_origin_regex:
+        default: .*
+        description: 'Allowed origins for CORS: from which domains requests to the
+          API are allowed. Specify as a regex: `https://.*.innohassle.ru`'
+        title: Cors Allow Origin Regex
+        type: string
+      accounts:
+        $ref: '#/$defs/Accounts'
+    required:
+    - database_uri
+    - printers_list
+    - accounts
+    title: ApiSettings
+    type: object
+  BotSettings:
+    additionalProperties: false
+    properties:
+      bot_token:
+        description: Token from BotFather
+        format: password
+        title: Bot Token
+        type: string
+        writeOnly: true
+      api_url:
+        default: http://127.0.0.1:8000
+        description: Print API url
+        title: Api Url
+        type: string
+    required:
+    - bot_token
+    title: BotSettings
+    type: object
+  Printer:
+    additionalProperties: false
+    properties:
+      name:
+        title: Name
+        type: string
+      cups_name:
+        title: Cups Name
+        type: string
+      ip:
+        title: Ip
+        type: string
+    required:
+    - name
+    - cups_name
+    - ip
+    title: Printer
+    type: object
 additionalProperties: false
 description: Settings for the application.
 properties:
@@ -32,34 +108,15 @@ properties:
     default: null
     title: $Schema
     type: string
-  environment:
-    $ref: '#/$defs/Environment'
-    default: development
-    description: App environment flag
-  app_root_path:
-    default: ''
-    description: Prefix for the API path (e.g. "/api/v0")
-    title: App Root Path
-    type: string
-  database_uri:
-    description: MongoDB database settings
-    examples:
-    - mongodb://mongoadmin:secret@localhost:27017/db?authSource=admin
-    - mongodb://mongoadmin:secret@db:27017/db?authSource=admin
-    format: password
-    title: Database Uri
-    type: string
-    writeOnly: true
-  cors_allow_origin_regex:
-    default: .*
-    description: 'Allowed origins for CORS: from which domains requests to the API
-      are allowed. Specify as a regex: `https://.*.innohassle.ru`'
-    title: Cors Allow Origin Regex
-    type: string
-  accounts:
-    $ref: '#/$defs/Accounts'
-required:
-- database_uri
-- accounts
+  api:
+    anyOf:
+    - $ref: '#/$defs/ApiSettings'
+    - type: 'null'
+    default: null
+  bot:
+    anyOf:
+    - $ref: '#/$defs/BotSettings'
+    - type: 'null'
+    default: null
 title: Settings
 type: object

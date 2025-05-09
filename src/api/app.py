@@ -38,9 +38,9 @@ app = FastAPI(
         "identifier": "MIT",
     },
     servers=[
-        {"url": settings.app_root_path, "description": "Current"},
+        {"url": settings.api.app_root_path, "description": "Current"},
     ],
-    root_path=settings.app_root_path,
+    root_path=settings.api.app_root_path,
     root_path_in_servers=False,
     generate_unique_id_function=generate_unique_operation_id,
     lifespan=lifespan,
@@ -53,7 +53,7 @@ patch_fastapi(app)
 # CORS settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=settings.cors_allow_origin_regex,
+    allow_origin_regex=settings.api.cors_allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -62,5 +62,5 @@ app.add_middleware(
 from src.modules.printing.routes import router as router_printing  # noqa: E402
 from src.modules.users.routes import router as router_users  # noqa: E402
 
-app.include_router(router_users)
 app.include_router(router_printing)
+app.include_router(router_users)

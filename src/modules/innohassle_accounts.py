@@ -14,6 +14,7 @@ class UserInfoFromSSO(BaseModel):
 
 
 class UserSchema(BaseModel):
+    id: str
     innopolis_sso: UserInfoFromSSO | None
 
 
@@ -54,7 +55,18 @@ class InNoHassleAccounts:
                     return None
                 raise e
 
+    async def get_user_by_telegram_id(self, telegram_id: int) -> UserSchema | None:
+        async with self.get_authorized_client() as client:
+            response = await client.get(f"{self.api_url}/users/by-telegram-id/{telegram_id}")
+            try:
+                response.raise_for_status()
+                return UserSchema.model_validate(response.json())
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    return None
+                raise e
+
 
 innohassle_accounts = InNoHassleAccounts(
-    api_url=settings.accounts.api_url, api_jwt_token=settings.accounts.api_jwt_token.get_secret_value()
+    api_url=settings.api.accounts.api_url, api_jwt_token=settings.api.accounts.api_jwt_token.get_secret_value()
 )

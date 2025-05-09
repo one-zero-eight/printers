@@ -19,7 +19,7 @@ from src.storages.mongo import document_models
 
 async def setup_database() -> AsyncIOMotorClient:
     motor_client: AsyncIOMotorClient = AsyncIOMotorClient(
-        settings.database_uri.get_secret_value(),
+        settings.api.database_uri.get_secret_value(),
         connectTimeoutMS=5000,
         serverSelectionTimeoutMS=5000,
         tz_aware=True,

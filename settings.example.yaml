@@ -1,6 +1,7 @@
+# yaml-language-server: $schema=settings.schema.yaml
 $schema: "./settings.schema.yaml"
-environment: development
-database_uri: null # Database URL, f.e. "mongodb://mongoadmin:secret@localhost:27017/db?authSource=admin"
-accounts:
-  # get from https://api.innohassle.ru/accounts/v0/tokens/generate-service-token?sub=service-name&scopes=users&only_for_me=true
-  api_jwt_token: null
+api:
+  database_uri: null # Database URL, f.e. "mongodb://mongoadmin:secret@localhost:27017/db?authSource=admin"
+  accounts:
+    # get from https://api.innohassle.ru/accounts/v0/tokens/generate-service-token?sub=service-name&scopes=users&only_for_me=true
+    api_jwt_token: null
