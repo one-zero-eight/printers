@@ -15,12 +15,8 @@ from src.bot.routers.print import PrintWork, update_confirmation_keyboard
 router = Router(name="pages_setup")
 
 
-class SetupJobWork(StatesGroup):
-    set_printer = State()
-    set_copies = State()
+class SetupPagesWork(StatesGroup):
     set_pages = State()
-    set_sides = State()
-    set_layout = State()
 
 
 def normalize_page_ranges(page_ranges: str) -> str:
@@ -63,7 +59,7 @@ def normalize_page_ranges(page_ranges: str) -> str:
 @router.callback_query(PrintWork.wait_for_acceptance, F.data == "Pages")
 async def job_settings_pages(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    await state.set_state(SetupJobWork.set_pages)
+    await state.set_state(SetupPagesWork.set_pages)
     message = await callback.message.answer(
         text="📑 Send here page ranges to be printed\n\n"
         f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
@@ -77,7 +73,7 @@ def sub(integers: map) -> int:
     return next(integers) - next(integers)
 
 
-@router.message(SetupJobWork.set_pages)
+@router.message(SetupPagesWork.set_pages)
 async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
     await message.delete()
     if (normalized := normalize_page_ranges(message.text)) != message.text:
@@ -99,7 +95,7 @@ async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
     )
 
 
-@router.callback_query(SetupJobWork.set_pages, F.data == "Ready")
+@router.callback_query(SetupPagesWork.set_pages, F.data == "Ready")
 async def apply_settings_pages(callback: CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
     update_confirmation_keyboard(data)

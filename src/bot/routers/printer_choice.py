@@ -16,18 +16,14 @@ from src.config import settings
 router = Router(name="printer_choice")
 
 
-class SetupJobWork(StatesGroup):
+class SetupPrinterWork(StatesGroup):
     set_printer = State()
-    set_copies = State()
-    set_pages = State()
-    set_sides = State()
-    set_layout = State()
 
 
 @router.callback_query(PrintWork.wait_for_acceptance, F.data == "Printer")
 async def job_settings_printer(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    await state.set_state(SetupJobWork.set_printer)
+    await state.set_state(SetupPrinterWork.set_printer)
     keyboard = InlineKeyboardBuilder()
     for printer in await api_client.get_printers_list(callback.from_user.id):
         keyboard.add(InlineKeyboardButton(text=printer["name"], callback_data=printer["name"]))
@@ -35,7 +31,8 @@ async def job_settings_printer(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(
-    SetupJobWork.set_printer, lambda callback: callback.data in map(lambda elem: elem.name, settings.api.printers_list)
+    SetupPrinterWork.set_printer,
+    lambda callback: callback.data in map(lambda elem: elem.name, settings.api.printers_list),
 )
 async def apply_settings_printer(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await state.update_data(printer=callback.data)

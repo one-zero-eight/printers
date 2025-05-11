@@ -14,18 +14,14 @@ from src.bot.routers.print import PrintWork, update_confirmation_keyboard
 router = Router(name="layout_setup")
 
 
-class SetupJobWork(StatesGroup):
-    set_printer = State()
-    set_copies = State()
-    set_pages = State()
-    set_sides = State()
+class SetupLayoutWork(StatesGroup):
     set_layout = State()
 
 
 @router.callback_query(PrintWork.wait_for_acceptance, F.data == "Layout")
 async def job_settings_layout(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    await state.set_state(SetupJobWork.set_layout)
+    await state.set_state(SetupLayoutWork.set_layout)
     await callback.message.answer(
         f"📖 Set {html.bold("paper layout")}",
         reply_markup=InlineKeyboardMarkup(
@@ -40,7 +36,7 @@ async def job_settings_layout(callback: CallbackQuery, state: FSMContext):
     )
 
 
-@router.callback_query(SetupJobWork.set_layout, lambda callback: callback.data in "1 4 9".split())
+@router.callback_query(SetupLayoutWork.set_layout, lambda callback: callback.data in "1 4 9".split())
 async def apply_settings_layout(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await state.update_data(number_up=callback.data)
     data = await state.get_data()

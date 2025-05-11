@@ -170,7 +170,6 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
             job_state = await api_client.check_job(callback.from_user.id, job_id)
         except httpx.HTTPStatusError:
             return
-        print(job_state)
         status_text = {
             "job-completed-successfully": "Job is completed!",
             "none": "Where is no job",

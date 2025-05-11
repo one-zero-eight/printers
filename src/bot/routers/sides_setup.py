@@ -14,18 +14,14 @@ from src.bot.routers.print import PrintWork, update_confirmation_keyboard
 router = Router(name="sides_setup")
 
 
-class SetupJobWork(StatesGroup):
-    set_printer = State()
-    set_copies = State()
-    set_pages = State()
+class SetupSidesWork(StatesGroup):
     set_sides = State()
-    set_layout = State()
 
 
 @router.callback_query(PrintWork.wait_for_acceptance, F.data == "Sides")
 async def job_settings_sides(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    await state.set_state(SetupJobWork.set_sides)
+    await state.set_state(SetupSidesWork.set_sides)
     await callback.message.answer(
         f"🌚🌝 Set {html.bold("paper sides")}",
         reply_markup=InlineKeyboardMarkup(
@@ -40,7 +36,7 @@ async def job_settings_sides(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(
-    SetupJobWork.set_sides, lambda callback: callback.data in "one-sided two-sided-long-edge".split()
+    SetupSidesWork.set_sides, lambda callback: callback.data in "one-sided two-sided-long-edge".split()
 )
 async def apply_settings_sides(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await state.update_data(sides=callback.data)
