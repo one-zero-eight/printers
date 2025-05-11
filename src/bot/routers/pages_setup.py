@@ -73,7 +73,7 @@ async def job_settings_pages(callback: CallbackQuery, state: FSMContext):
     await state.update_data(job_settings_pages_message_id=message.message_id)
 
 
-def sub(integers):
+def sub(integers: map) -> int:
     return next(integers) - next(integers)
 
 

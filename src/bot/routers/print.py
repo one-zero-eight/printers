@@ -46,8 +46,15 @@ def update_confirmation_keyboard(data: dict[str, Any]) -> None:
     confirmation_keyboard.inline_keyboard[4][1].text = empty_inline_space_remainder(f"✏️ {layout}")
 
 
+def sub(integers: map) -> int:
+    try:
+        return -next(integers) + next(integers) + 1
+    except StopIteration:
+        return 1
+
+
 def total_count_of_pages_to_print(page_ranges: str) -> int:
-    return functools.reduce(lambda result, elem: result + sum(map(int, elem.split("-"))), page_ranges.split(","), 0)
+    return functools.reduce(lambda result, elem: result + sub(map(int, elem.split("-"))), page_ranges.split(","), 0)
 
 
 def recalculate_page_ranges(page_range: str, number_up: str) -> str:
@@ -148,13 +155,12 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
             inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
         )
     )
-    max_sec_per_work = 30
+    max_sec_per_page = 20
     for i in range(
         int(
-            max_sec_per_work
+            max_sec_per_page
             * int(data["copies"])
-            * total_count_of_pages_to_print(data["page_ranges"])
-            * (1 if data["sides"] == "one-sided" else 0.5)
+            * total_count_of_pages_to_print(recalculate_page_ranges(data["page_ranges"], data["number_up"]))
         )
     ):
         if (await state.get_state()) == PrintWork.request_file.state:
@@ -164,6 +170,7 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
             job_state = await api_client.check_job(callback.from_user.id, job_id)
         except httpx.HTTPStatusError:
             return
+        print(job_state)
         status_text = {
             "job-completed-successfully": "Job is completed!",
             "none": "Where is no job",
