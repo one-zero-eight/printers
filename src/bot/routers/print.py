@@ -189,12 +189,13 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
             + html.bold(status_text + (f" {"⤹ ⤿ ⤻ ⤺".split()[i % 4]}" if status_text != "Job is completed!" else ""))
         )
         try:
-            await callback.message.edit_caption(
-                caption=caption,
-                reply_markup=InlineKeyboardMarkup(
-                    inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
-                ),
-            )
+            if (await state.get_state()) != PrintWork.request_file.state:
+                await callback.message.edit_caption(
+                    caption=caption,
+                    reply_markup=InlineKeyboardMarkup(
+                        inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
+                    ),
+                )
         except aiogram.exceptions.TelegramBadRequest:
             pass
         if job_state["job-state-reasons"] == "job-completed-successfully":
@@ -236,7 +237,7 @@ async def print_work_cancel(callback: CallbackQuery, state: FSMContext):
         )
         + html.italic(f"⦁ Layout: {html.bold(layout)}\n")
         + html.bold("Cancelled on demand\n")
-        + "However, we unable to revoke partially printed jobs, you should try this with printer"
+        + f"However, {html.bold("we unable to revoke partially printed jobs")}. You should try this with printer"
     )
     await callback.message.delete_reply_markup()
     await callback.message.edit_caption(caption=caption)
