@@ -12,20 +12,6 @@ removed_reply_keyboard = ReplyKeyboardRemove(remove_keyboard=True)
 
 ready_keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Ready", callback_data="Ready")]])
 
-amount_of_copies_keyboard = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [
-            InlineKeyboardButton(text="+1", callback_data="1"),
-            InlineKeyboardButton(text="+5", callback_data="5"),
-        ],
-        [
-            InlineKeyboardButton(text="-1", callback_data="-1"),
-            InlineKeyboardButton(text="-5", callback_data="-5"),
-        ],
-        [InlineKeyboardButton(text="Ready", callback_data="Ready")],
-    ]
-)
-
 confirmation_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[
         [
