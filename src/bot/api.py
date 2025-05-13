@@ -66,7 +66,15 @@ class InNoHasslePrintAPI:
                 return
             response.raise_for_status()
 
-    async def get_prepared_document(self, telegram_id, document_name) -> bytes:
+    async def cancel_not_started_job(self, telegram_id: int, document_name: str) -> None:
+        params = {"filename": document_name}
+        async with self._create_client(telegram_id) as client:
+            response = await client.post("/print/cancel_preparation", params=params)
+            if response.status_code == 200:
+                return
+            response.raise_for_status()
+
+    async def get_prepared_document(self, telegram_id: int, document_name: str) -> bytes:
         params = {"filename": document_name}
         async with self._create_client(telegram_id) as client:
             response = await client.get("/print/get_file", params=params, timeout=httpx.Timeout(None))

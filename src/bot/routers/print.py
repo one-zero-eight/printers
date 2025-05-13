@@ -123,8 +123,9 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
 
 
 @router.callback_query(PrintWork.wait_for_acceptance, F.data == "Cancel")
-async def print_work_print_cancel(callback: CallbackQuery, state: FSMContext):
+async def print_work_preparation_cancel(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
+    await api_client.cancel_not_started_job(callback.from_user.id, (await state.get_data())["filename"])
     await callback.message.delete_reply_markup()
     await state.set_state(PrintWork.request_file)
     await callback.message.answer(

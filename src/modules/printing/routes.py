@@ -102,5 +102,14 @@ async def actual_print(
 
 
 @router.post("/cancel", responses={404: {"description": "No such file"}, 400: {"description": "No such printer"}})
-async def cancel_printing(job_id: int, _innohassle_user_id: USER_AUTH):
+async def cancel_printing(job_id: int, _innohassle_user_id: USER_AUTH) -> None:
     printing_repository.cancel_job(job_id)
+
+
+@router.post("/cancel_preparation", responses={404: {"description": "No such file"}})
+async def cancel_preparation(filename: str, innohassle_user_id: USER_AUTH) -> None:
+    if (innohassle_user_id, filename) in tempfiles:
+        os.unlink(filename)
+        del tempfiles[(innohassle_user_id, filename)]
+    else:
+        raise HTTPException(404, "No such file")
