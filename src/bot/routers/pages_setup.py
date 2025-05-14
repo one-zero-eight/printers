@@ -9,7 +9,7 @@ from aiogram.types import (
     Message,
 )
 
-from src.bot.keyboards import confirmation_keyboard, ready_keyboard
+from src.bot.keyboards import confirmation_keyboard
 from src.bot.routers.print import PrintWork, update_confirmation_keyboard
 
 router = Router(name="pages_setup")
@@ -63,8 +63,7 @@ async def job_settings_pages(callback: CallbackQuery, state: FSMContext):
     message = await callback.message.answer(
         text="📑 Send here page ranges to be printed\n\n"
         f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
-        f"Current pages: {html.bold((await state.get_data())["page_ranges"])}",
-        reply_markup=ready_keyboard,
+        f"Current pages: {html.bold((await state.get_data())["page_ranges"])}"
     )
     await state.update_data(job_settings_pages_message_id=message.message_id)
 
@@ -83,29 +82,18 @@ async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
             text=html.bold("📑 Incorrect format\n\n") + f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
             f"Maybe you meant: {html.bold(normalized)}\n\n"
             f"Current pages: {html.bold((await state.get_data())["page_ranges"])}",
-            reply_markup=ready_keyboard,
         )
         return
     await state.update_data(page_ranges=normalized)
-    await bot.edit_message_text(
-        message_id=(await state.get_data())["job_settings_pages_message_id"],
-        chat_id=message.chat.id,
-        text=html.bold("📑 Set!\n\n") + f"Current pages: {html.bold((await state.get_data())["page_ranges"])}",
-        reply_markup=ready_keyboard,
-    )
-
-
-@router.callback_query(SetupPagesWork.set_pages, F.data == "Ready")
-async def apply_settings_pages(callback: CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
     update_confirmation_keyboard(data)
     try:
         await bot.edit_message_reply_markup(
-            chat_id=callback.message.chat.id,
+            chat_id=message.chat.id,
             message_id=data["confirmation_message"],
             reply_markup=confirmation_keyboard,
         )
     except aiogram.exceptions.TelegramBadRequest:
         pass
-    await callback.message.delete()
+    await bot.delete_message(chat_id=message.chat.id, message_id=data["job_settings_pages_message_id"])
     await state.set_state(PrintWork.wait_for_acceptance)

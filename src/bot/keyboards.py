@@ -10,8 +10,6 @@ cancel_keyboard = InlineKeyboardMarkup(
 
 removed_reply_keyboard = ReplyKeyboardRemove(remove_keyboard=True)
 
-ready_keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Ready", callback_data="Ready")]])
-
 confirmation_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[
         [
