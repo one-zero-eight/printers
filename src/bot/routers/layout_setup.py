@@ -23,7 +23,8 @@ async def job_settings_layout(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.set_state(SetupLayoutWork.set_layout)
     await callback.message.answer(
-        f"📖 Set {html.bold("paper layout")}",
+        f"📖 Set {html.bold("page layout")}\n\n"
+        f"This option is about pages per page,\n2x2 will print four pages in one page",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
