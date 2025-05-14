@@ -10,7 +10,15 @@ from src.modules.printing.entity_models import JobAttributes, PrintingOptions
 
 # noinspection PyMethodMayBeStatic
 class PrintingRepository:
-    def __init__(self):
+    def __init__(self, server: str | None, port: int | None, user: str | None):
+        # Settings should be set before calling cups.Connection()
+        if server is not None:
+            cups.setServer(server)
+        if port is not None:
+            cups.setPort(port)
+        if user is not None:
+            cups.setUser(user)
+
         self.server = cups.Connection()
 
     def get_printer(self, name: str) -> Printer | None:
@@ -32,4 +40,8 @@ class PrintingRepository:
         self.server.cancelJob(job_id, True)
 
 
-printing_repository: PrintingRepository = PrintingRepository()
+printing_repository: PrintingRepository = PrintingRepository(
+    settings.api.cups_server,
+    settings.api.cups_port,
+    settings.api.cups_user,
+)

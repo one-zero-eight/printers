@@ -43,6 +43,12 @@ class ApiSettings(SettingBaseModel):
     "unoserver server network"
     unoserver_port: int = 2003
     "Unoserver server network port"
+    cups_server: str | None = None  # default is /run/cups/cups.sock, but you can change to "localhost"
+    "CUPS hostname"
+    cups_port: int = 631
+    "CUPS port"
+    cups_user: str | None = None  # default is current user
+    "CUPS username"
     printers_list: list[Printer]
     cors_allow_origin_regex: str = ".*"
     "Allowed origins for CORS: from which domains requests to the API are allowed. Specify as a regex: `https://.*.innohassle.ru`"

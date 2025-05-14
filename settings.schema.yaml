@@ -46,6 +46,25 @@ $defs:
         description: Unoserver server network port
         title: Unoserver Port
         type: integer
+      cups_server:
+        anyOf:
+        - type: string
+        - type: 'null'
+        default: null
+        description: CUPS hostname
+        title: Cups Server
+      cups_port:
+        default: 631
+        description: CUPS port
+        title: Cups Port
+        type: integer
+      cups_user:
+        anyOf:
+        - type: string
+        - type: 'null'
+        default: null
+        description: CUPS username
+        title: Cups User
       printers_list:
         items:
           $ref: '#/$defs/Printer'
