@@ -30,7 +30,15 @@ services:
   unoserver:
     image: ghcr.io/unoconv/unoserver-docker
     ports:
-      - 2003:2003
+      - "2003:2003"
+
+  cups:
+    image: olbat/cupsd:2025-05-12
+    restart: always
+    volumes:
+      - "cups:/etc/cups"
+    profiles: [ cups ]
 
 volumes:
   mongodb:
+  cups:
