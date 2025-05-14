@@ -4,13 +4,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
-    InlineKeyboardButton,
 )
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from src.bot.api import api_client
-from src.bot.keyboards import confirmation_keyboard
-from src.bot.routers.print import PrintWork, update_confirmation_keyboard
+from src.bot.keyboards import confirmation_keyboard, printers_keyboard
+from src.bot.routers.printing.printing_states import PrintWork
+from src.bot.routers.printing.printing_tools import update_confirmation_keyboard
 from src.config import settings
 
 router = Router(name="printer_choice")
@@ -24,10 +22,9 @@ class SetupPrinterWork(StatesGroup):
 async def job_settings_printer(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.set_state(SetupPrinterWork.set_printer)
-    keyboard = InlineKeyboardBuilder()
-    for printer in await api_client.get_printers_list(callback.from_user.id):
-        keyboard.add(InlineKeyboardButton(text=printer["name"], callback_data=printer["name"]))
-    await callback.message.answer(f"🖨📠 Choose {html.bold("the printer")}", reply_markup=keyboard.as_markup())
+    await callback.message.answer(
+        f"🖨📠 Choose {html.bold("the printer")}", reply_markup=await printers_keyboard(callback)
+    )
 
 
 @router.callback_query(

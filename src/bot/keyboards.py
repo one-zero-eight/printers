@@ -1,8 +1,13 @@
 from aiogram.types import (
+    CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    Message,
     ReplyKeyboardRemove,
 )
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+from src.bot.api import api_client
 
 cancel_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data="Cancel")]]
@@ -38,3 +43,10 @@ confirmation_keyboard = InlineKeyboardMarkup(
         ],
     ]
 )
+
+
+async def printers_keyboard(message: Message | CallbackQuery) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for printer in await api_client.get_printers_list(message.from_user.id):
+        keyboard.add(InlineKeyboardButton(text=printer["name"], callback_data=printer["name"]))
+    return keyboard.as_markup()

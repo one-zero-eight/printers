@@ -8,7 +8,8 @@ from aiogram.types import (
 )
 
 from src.bot.keyboards import confirmation_keyboard
-from src.bot.routers.print import PrintWork, update_confirmation_keyboard
+from src.bot.routers.printing.printing_states import PrintWork
+from src.bot.routers.printing.printing_tools import count_of_papers_to_print, update_confirmation_keyboard
 
 router = Router(name="copies_setup")
 
@@ -37,7 +38,10 @@ async def apply_settings_copies(message: Message, state: FSMContext, bot: Bot):
         data = await state.get_data()
         update_confirmation_keyboard(data)
         try:
-            await bot.edit_message_reply_markup(
+            await bot.edit_message_caption(
+                caption="Document is ready to be printed\n"
+                f"Total papers: {count_of_papers_to_print(data["page_ranges"], data["number_up"],
+                                                                 data["sides"], data["copies"])}\n",
                 chat_id=message.chat.id,
                 message_id=data["confirmation_message"],
                 reply_markup=confirmation_keyboard,

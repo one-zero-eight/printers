@@ -6,14 +6,12 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
-    InlineKeyboardButton,
     Message,
 )
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from src.bot.api import api_client
+from src.bot import shared_messages
 from src.bot.entry_filters import InnohassleUserFilter
-from src.bot.routers.print import PrintWork
+from src.bot.keyboards import printers_keyboard
 
 router = Router(name="registration")
 
@@ -26,34 +24,25 @@ class RegistrationWork(StatesGroup):
 async def command_start_handler(message: Message, state: FSMContext):
     await state.clear()
     await state.set_state(RegistrationWork.printer_is_not_set)
-    keyboard = InlineKeyboardBuilder()
-    for printer in await api_client.get_printers_list(message.from_user.id):
-        keyboard.add(InlineKeyboardButton(text=printer["name"], callback_data=printer["name"]))
     await message.answer(
         f"👋 Hello, {html.bold(message.from_user.first_name)}\n"
-        f"This is a bot for printing documents with {html.bold("Innopolis University printers!")}\n\n"
+        f"This is a bot for printing documents with\n{html.bold("Innopolis University printers!")}\n\n"
         "❓ About: /help\n\n"
         f"To proceed, please, {html.bold("choose a printer")}",
-        reply_markup=keyboard.as_markup(),
+        reply_markup=await printers_keyboard(message),
     )
 
 
 @router.callback_query(RegistrationWork.printer_is_not_set)
 async def registration_work_set_printer(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
+    await callback.message.delete_reply_markup()
     await state.update_data(printer=callback.data)
-    await state.set_state(PrintWork.request_file)
-    await callback.message.answer(
-        html.bold("🖨 We are ready to print!\n") + f"Just send something to be printed\n\n"
-        f"Current printer is {html.bold((await state.get_data())["printer"])}"
-    )
+    await shared_messages.send_something(callback, state)
 
 
 @router.message(Command("start"), ~InnohassleUserFilter())
-async def command_start_not_registered_handler(
-    message: Message, bot: Bot, event_from_user: types.User, state: FSMContext
-):
-    await state.set_state(RegistrationWork.waiting_for_registration)
+async def command_start_not_registered_handler(bot: Bot, event_from_user: types.User, state: FSMContext):
     connect_kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [

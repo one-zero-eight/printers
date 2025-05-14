@@ -1,16 +1,12 @@
 import asyncio
-import functools
 import io
-import math
 import time
-from typing import Any
 
 import aiogram.exceptions
 import httpx
 from aiogram import Bot, F, Router, html
 from aiogram.enums import ChatAction
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     BufferedInputFile,
     CallbackQuery,
@@ -19,51 +15,19 @@ from aiogram.types import (
     Message,
 )
 
+from src.bot import shared_messages
 from src.bot.api import api_client
 from src.bot.keyboards import confirmation_keyboard
+from src.bot.routers.printing.printing_states import PrintWork
+from src.bot.routers.printing.printing_tools import (
+    count_of_papers_to_print,
+    recalculate_page_ranges,
+    update_confirmation_keyboard,
+    without_throbber,
+)
 from src.modules.printing.entity_models import PrintingOptions
 
-router = Router(name="print")
-
-
-class PrintWork(StatesGroup):
-    request_file = State()
-    wait_for_acceptance = State()
-    printing = State()
-
-
-def update_confirmation_keyboard(data: dict[str, Any]) -> None:
-    def empty_inline_space_remainder(string):
-        return string + " " * (100 - len(string)) + "."
-
-    layout = {"1": "1x1", "4": "2x2", "9": "3x3"}.get(data["number_up"], None)
-    confirmation_keyboard.inline_keyboard[0][1].text = empty_inline_space_remainder(f"✏️ {data["printer"]}")
-    confirmation_keyboard.inline_keyboard[1][1].text = empty_inline_space_remainder(f"✏️ {data["copies"]}")
-    confirmation_keyboard.inline_keyboard[2][1].text = empty_inline_space_remainder(f"✏️ {data["page_ranges"]}")
-    confirmation_keyboard.inline_keyboard[3][1].text = empty_inline_space_remainder(
-        f"✏️ {"One side" if data["sides"] == "one-sided" else "Both sides"}"
-    )
-    confirmation_keyboard.inline_keyboard[4][1].text = empty_inline_space_remainder(f"✏️ {layout}")
-
-
-def sub(integers: map) -> int:
-    try:
-        return -next(integers) + next(integers) + 1
-    except StopIteration:
-        return 1
-
-
-def total_count_of_pages_to_print(page_ranges: str) -> int:
-    return functools.reduce(lambda result, elem: result + sub(map(int, elem.split("-"))), page_ranges.split(","), 0)
-
-
-def recalculate_page_ranges(page_range: str, number_up: str) -> str:
-    return ",".join(
-        map(
-            lambda elem: "-".join((str(math.ceil(int(el) / int(number_up)))) for el in elem.split("-")),
-            page_range.split(","),
-        )
-    )
+router = Router(name="printing")
 
 
 @router.message(PrintWork.request_file)
@@ -106,14 +70,15 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
         data["number_up"] = "1"
     update_confirmation_keyboard(data)
     document = await api_client.get_prepared_document(message.from_user.id, data["filename"])
-    caption = "Document is ready to be printed\n" f"Total pages: {html.bold(data["pages"])}\n"
     mess = await message.answer_document(
         (
             document := BufferedInputFile(
                 document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf"
             )
         ),
-        caption=caption,
+        caption="Document is ready to be printed\n"
+        f"Total papers: {count_of_papers_to_print(data["page_ranges"], data["number_up"],
+                                                         data["sides"], data["copies"])}\n",
         reply_markup=confirmation_keyboard,
     )
     data["request_file"] = document
@@ -126,12 +91,14 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
 async def print_work_preparation_cancel(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await api_client.cancel_not_started_job(callback.from_user.id, (await state.get_data())["filename"])
-    await callback.message.delete_reply_markup()
-    await state.set_state(PrintWork.request_file)
-    await callback.message.answer(
-        "You've cancelled this print work 🤷‍♀️\n\n"
-        f"🖨 Now you can start a new by sending something {html.bold("to be printed")}"
-    )
+    try:
+        await callback.message.edit_caption(
+            caption=f"{without_throbber(callback.message.caption)}"
+            f"\n\n{html.bold("You've cancelled this print work 🤷‍♀️")}"
+        )
+    except aiogram.exceptions.TelegramBadRequest:
+        pass
+    await shared_messages.send_something(callback, state)
 
 
 @router.callback_query(PrintWork.wait_for_acceptance, F.data == "Confirm")
@@ -156,16 +123,12 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
             inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
         )
     )
+    caption = ""
     max_sec_per_page = 20
     for i in range(
-        int(
-            max_sec_per_page
-            * int(data["copies"])
-            * total_count_of_pages_to_print(recalculate_page_ranges(data["page_ranges"], data["number_up"]))
-        )
+        max_sec_per_page
+        * count_of_papers_to_print(data["page_ranges"], data["number_up"], data["sides"], data["copies"], False)
     ):
-        if (await state.get_state()) == PrintWork.request_file.state:
-            break
         await_time = time.time_ns()
         try:
             job_state = await api_client.check_job(callback.from_user.id, job_id)
@@ -177,73 +140,70 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
             "media-empty-report": "Media is empty!",
             "canceled-at-device": "The job was cancelled at the printer",
             "job-printing": "Printing",
-        }.get(job_state.get("job-state-reasons", "none"), "Unknown error, cancelled")
+        }.get(job_state["job-state-reasons"], f"Unknown error {html.italic(job_state["job-state-reasons"])}, cancelled")
         layout = {"1": "1x1", "4": "2x2", "9": "3x3"}[data["number_up"]]
         caption = (
             html.italic("Job\n")
+            + html.italic(f"⦁ Printer: {html.bold(data["printer"])}\n")
             + html.italic(f"⦁ Copies: {html.bold(data["copies"])}\n")
-            + html.italic(f"⦁ Pages: {html.bold(data["page_ranges"])} (total {html.bold(data["pages"])})\n")
+            + html.italic(f"⦁ Pages: {html.bold(data["page_ranges"])} (in document: {html.bold(data["pages"])})\n")
             + html.italic(
                 f"⦁ Print on: {html.bold("One side") if data["sides"] == "one-sided" else html.bold("Two sides")}\n"
             )
             + html.italic(f"⦁ Layout: {html.bold(layout)}\n")
-            + html.bold(status_text + (f" {"⤹ ⤿ ⤻ ⤺".split()[i % 4]}" if status_text != "Job is completed!" else ""))
+            + f"{html.italic("Status:")} {html.bold(f"{status_text} {"⤹ ⤿ ⤻ ⤺".split()[i % 4]}")}"
         )
+        if (await state.get_state()) == PrintWork.request_file.state:
+            break
         try:
-            if (await state.get_state()) != PrintWork.request_file.state:
-                await callback.message.edit_caption(
-                    caption=caption,
-                    reply_markup=InlineKeyboardMarkup(
-                        inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
-                    ),
-                )
+            await callback.message.edit_caption(
+                caption=caption,
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
+                ),
+            )
         except aiogram.exceptions.TelegramBadRequest:
             pass
         if job_state["job-state-reasons"] == "job-completed-successfully":
-            await callback.message.delete_reply_markup()
-            await state.set_state(PrintWork.request_file)
-            await callback.message.answer(
-                f"🖨 Now you can start a new by sending something " f"{html.bold("to be printed")}"
-            )
+            try:
+                await callback.message.edit_caption(caption=without_throbber(caption))
+            except aiogram.exceptions.TelegramBadRequest:
+                pass
+            await shared_messages.send_something(callback, state)
             break
-        if job_state.get("job-state-reasons", "none") in "none media-empty-report canceled-at-device".split():
+        if job_state["job-state-reasons"] in "none media-empty-report canceled-at-device".split():
             await api_client.cancel_job(callback.from_user.id, job_id)
-            await callback.message.delete_reply_markup()
-            await state.set_state(PrintWork.request_file)
-            await callback.message.answer(
-                "Job failed ☠️\n\n" f"🖨 Now you can start a new by sending something {html.bold("to be printed")}"
-            )
+            try:
+                await callback.message.edit_caption(
+                    caption=f"{without_throbber(caption)}\n\n{html.bold("Job failed ☠️")}"
+                )
+            except aiogram.exceptions.TelegramBadRequest:
+                pass
+            await shared_messages.send_something(callback, state)
             return
         await_time -= time.time_ns()
         await asyncio.sleep(max(0, 1 + await_time / 10 ** len(str(abs(await_time)))))
     else:
-        await callback.message.delete_reply_markup()
-        await state.set_state(PrintWork.request_file)
-        await callback.message.answer(
-            "Job is timed out ☠️\n\n" f"🖨 Now you can start a new by sending something {html.bold("to be printed")}"
-        )
+        await api_client.cancel_job(callback.from_user.id, job_id)
+        try:
+            await callback.message.edit_caption(
+                caption=f"{without_throbber(caption)}" f"\n\n{html.bold("Job is timed out ☠️")}"
+            )
+        except aiogram.exceptions.TelegramBadRequest:
+            pass
+        await shared_messages.send_something(callback, state)
 
 
 @router.callback_query(PrintWork.printing)
 async def print_work_cancel(callback: CallbackQuery, state: FSMContext):
+    await shared_messages.send_something(callback, state)
     await api_client.cancel_job(callback.from_user.id, int(callback.data))
-    data = await state.get_data()
-    layout = {"1": "1x1", "4": "2x2", "9": "3x3"}[data["number_up"]]
-    caption = (
-        html.italic("Job\n")
-        + html.italic(f"⦁ Copies: {html.bold(data["copies"])}\n")
-        + html.italic(f"⦁ Pages: {html.bold(data["page_ranges"])} (total {html.bold(data["pages"])})\n")
-        + html.italic(
-            f"⦁ Print on: {html.bold("One side") if data["sides"] == "one-sided" else html.bold("Two sides")}\n"
+    try:
+        await callback.message.edit_caption(
+            caption=f"{without_throbber(callback.message.caption)}"
+            f"\n\n{html.bold("Cancelled on demand")}"
+            "\nHowever, we unable to revoke partially printed jobs."
+            f"\nYou should try this with printer"
         )
-        + html.italic(f"⦁ Layout: {html.bold(layout)}\n")
-        + html.bold("Cancelled on demand\n")
-        + f"However, {html.bold("we unable to revoke partially printed jobs")}. You should try this with printer"
-    )
-    await callback.message.delete_reply_markup()
-    await callback.message.edit_caption(caption=caption)
-    await state.set_state(PrintWork.request_file)
-    await callback.message.answer(
-        "You've cancelled this print work 🤷‍♀️\n\n"
-        f"🖨 Now you can start a new by sending something {html.bold("to be printed")}"
-    )
+    except aiogram.exceptions.TelegramBadRequest:
+        pass
