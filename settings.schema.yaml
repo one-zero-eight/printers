@@ -65,6 +65,15 @@ $defs:
         default: null
         description: CUPS username
         title: Cups User
+      cups_password:
+        anyOf:
+        - format: password
+          type: string
+          writeOnly: true
+        - type: 'null'
+        default: null
+        description: CUPS password
+        title: Cups Password
       printers_list:
         items:
           $ref: '#/$defs/Printer'

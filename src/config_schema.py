@@ -49,6 +49,8 @@ class ApiSettings(SettingBaseModel):
     "CUPS port"
     cups_user: str | None = None  # default is current user
     "CUPS username"
+    cups_password: SecretStr | None = None
+    "CUPS password"
     printers_list: list[Printer]
     cors_allow_origin_regex: str = ".*"
     "Allowed origins for CORS: from which domains requests to the API are allowed. Specify as a regex: `https://.*.innohassle.ru`"
