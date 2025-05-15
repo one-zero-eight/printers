@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 from src.config_schema import Printer
 from src.logging_ import logger
@@ -74,38 +74,43 @@ class JobAttributes(BaseModel):
     - https://www.iana.org/assignments/ipp-registrations/ipp-registrations.xml#ipp-registrations-4
     """
 
-    job_state: JobStateReasonEnum | str = Field(alias="job-state-reasons")
+    job_state: JobStateReasonEnum | str
     "The current state of a job from the getJobAttributes function"
     printer_state: (
         list[
             tuple[
                 PrinterStateReasonEnum | str,
-                Literal["error", "warning", "report"] | None,
+                Literal["error", "warning", "report", None],
             ]
         ]
         | None
-    ) = Field(default=None, alias="job-printer-state-reasons")
+    )
     "The current state of printer: 'cups-waiting-for-job-completed', 'media-needed-warning', 'media-empty-error', 'input-tray-missing', 'media-empty-report'"
 
-    @field_validator("job_state", mode="before")
-    def validate_job_state(cls, value: str):
+    @classmethod
+    def parse_job_state(cls, value: str) -> JobStateReasonEnum | str:
         try:
             return JobStateReasonEnum(value)
         except ValueError:
             logger.warning(f"Unknown job state: {value}")
             return value
 
-    @field_validator("printer_state", mode="before")
-    def validate_printer_state(cls, value: list[str]):
-        logger.info(f"Printer state: {value}")
+    @classmethod
+    def parse_printer_state(
+        cls, value: list[str]
+    ) -> list[tuple[PrinterStateReasonEnum | str, Literal["error", "warning", "report", None]]]:
         _result = []
         for v in value:
-            try:
-                reason, severity = PrinterStateReasonEnum.from_str(v)
-                _result.append((reason, severity))
-            except ValueError:
+            if isinstance(v, str):
+                try:
+                    reason, severity = PrinterStateReasonEnum.from_str(v)
+                    _result.append((reason, severity))
+                except ValueError:
+                    logger.warning(f"Unknown printer state: {v}")
+                    _result.append((v, None))
+            else:
                 logger.warning(f"Unknown printer state: {v}")
-                _result.append((v, None))
+                _result.append(v)
         return _result
 
 

@@ -140,7 +140,11 @@ class PrintingRepository:
         attributes = self.server.getJobAttributes(
             job_id, requested_attributes=["job-state-reasons", "job-printer-state-reasons"]
         )
-        return JobAttributes.model_validate(attributes)
+        
+        return JobAttributes(
+            job_state=JobAttributes.parse_job_state(attributes.get("job-state-reasons", "")),
+            printer_state=JobAttributes.parse_printer_state(attributes.get("job-printer-state-reasons", [])),
+        )
 
     def cancel_job(self, job_id: int):
         self.server.cancelJob(job_id, True)
