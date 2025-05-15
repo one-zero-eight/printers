@@ -22,7 +22,7 @@ class TokenRepository:
     async def verify_user_token(cls, token: str, credentials_exception) -> str:
         try:
             payload = cls.decode_token(token)
-            innohassle_id: str = payload.get("uid")
+            innohassle_id: str | None = payload.get("uid")
             if innohassle_id is None:
                 raise credentials_exception
             return innohassle_id

@@ -190,6 +190,15 @@ wheels = [
 ]
 
 [[package]]
+name = "cachetools"
+version = "5.5.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6c/81/3747dad6b14fa2cf53fcf10548cf5aea6913e96fab41a3c198676f8948a5/cachetools-5.5.2.tar.gz", hash = "sha256:1a661caa9175d26759571b2e19580f9d6393969e5dfca11fdb1f947a23e640d4", size = 28380 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/72/76/20fa66124dbe6be5cafeb312ece67de6b61dd91a0247d1ea13db4ebb33c2/cachetools-5.5.2-py3-none-any.whl", hash = "sha256:d26a22bcc62eb95c3beabd9f1ee5e820d3d2704fe2967cbe350e20c8ffcd3f0a", size = 10080 },
+]
+
+[[package]]
 name = "certifi"
 version = "2024.8.30"
 source = { registry = "https://pypi.org/simple" }
@@ -594,6 +603,7 @@ dependencies = [
     { name = "aiogram" },
     { name = "authlib" },
     { name = "beautifulsoup4" },
+    { name = "cachetools" },
     { name = "colorlog" },
     { name = "cryptography" },
     { name = "fastapi" },
@@ -622,6 +632,7 @@ requires-dist = [
     { name = "aiogram", specifier = ">=3.20.0.post0" },
     { name = "authlib", specifier = ">=1.1.2,<2" },
     { name = "beautifulsoup4", specifier = ">=4.13.4" },
+    { name = "cachetools", specifier = ">=5.5.2" },
     { name = "colorlog", specifier = ">=6.8.2,<7" },
     { name = "cryptography", specifier = ">=43.0.1,<44" },
     { name = "fastapi", specifier = ">=0.115.0,<0.116" },

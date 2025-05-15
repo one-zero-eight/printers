@@ -70,6 +70,8 @@ async def prepare_printing(file: UploadFile, innohassle_user_id: USER_AUTH) -> P
 
     if not file.size:
         raise HTTPException(400, "Empty file")
+    if not file.filename:
+        raise HTTPException(400, "No filename")
     ext = file.filename[file.filename.rfind(".") :]
     if ext == ".pdf":
         f = tempfile.NamedTemporaryFile(dir=settings.api.temp_dir, suffix=".pdf")

@@ -16,8 +16,11 @@ class SettingBaseModel(BaseModel):
 
 class Printer(SettingBaseModel):
     name: str
+    "Display name of the printer, it will be shown to the user"
     cups_name: str
-    ip: str
+    "Name of the printer in CUPS"
+    ip: str = Field(examples=["192.168.1.1", "host.docker.internal:62102", "127.0.0.1:62102"])
+    "IP address of the printer, also may be with port like 'host.docker.internal:62102' if needed (proxies to cups port)"
 
 
 class Accounts(SettingBaseModel):
@@ -43,15 +46,19 @@ class ApiSettings(SettingBaseModel):
     "unoserver server network"
     unoserver_port: int = 2003
     "Unoserver server network port"
-    cups_server: str | None = None  # default is /run/cups/cups.sock, but you can change to "localhost"
-    "CUPS hostname"
+    cups_server: str | None = Field(
+        default=None,
+        examples=["localhost", "cups", "127.0.0.1"],
+    )
+    "CUPS hostname, if None then /run/cups-socket/cups.sock will be used"
     cups_port: int = 631
     "CUPS port"
-    cups_user: str | None = None  # default is current user
-    "CUPS username"
+    cups_user: str | None = None
+    "CUPS username, if None then current user will be used"
     cups_password: SecretStr | None = None
     "CUPS password"
     printers_list: list[Printer]
+    "List of printers"
     cors_allow_origin_regex: str = ".*"
     "Allowed origins for CORS: from which domains requests to the API are allowed. Specify as a regex: `https://.*.innohassle.ru`"
     accounts: Accounts
@@ -70,9 +77,9 @@ class BotSettings(SettingBaseModel):
 class Settings(SettingBaseModel):
     """Settings for the application."""
 
-    schema_: str = Field(None, alias="$schema")
-    api: ApiSettings | None = None
-    bot: BotSettings | None = None
+    schema_: str | None = Field(None, alias="$schema")
+    api: ApiSettings = None  # type: ignore
+    bot: BotSettings = None  # type: ignore
 
     @classmethod
     def from_yaml(cls, path: Path) -> "Settings":

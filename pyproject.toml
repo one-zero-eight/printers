@@ -24,6 +24,7 @@ dependencies = [
     "aiogram>=3.20.0.post0",
     "pypdf2>=3.0.1",
     "beautifulsoup4>=4.13.4",
+    "cachetools>=5.5.2",
 ]
 
 [dependency-groups]
@@ -42,3 +43,13 @@ lint.ignore = [
 ]
 lint.extend-select = ["I", "UP", "PL"]
 target-version = "py312"
+
+[tool.pyright]
+include = ["src"]
+exclude = ["**/node_modules", "**/__pycache__"]
+typeCheckingMode = "basic"
+useLibraryCodeForTypes = true
+stubPath = "typings"
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportOptionalMemberAccess = false
