@@ -50,5 +50,12 @@ async def printers_keyboard(message: Message | CallbackQuery) -> InlineKeyboardM
     printer_statuses = await api_client.get_printers_status_list(message.from_user.id)
     for status in printer_statuses:
         printer = status.printer
-        keyboard.add(InlineKeyboardButton(text=printer.name, callback_data=printer.name))
+        show_text = printer.name
+        if status.toner_percentage is not None and status.total_papers is not None:
+            show_text += f" (🩸 {status.toner_percentage}%, 📄 {status.total_papers})"
+        elif status.toner_percentage is not None:
+            show_text += f" (🩸 {status.toner_percentage}%)"
+        elif status.total_papers is not None:
+            show_text += f" (📄 {status.total_papers})"
+        keyboard.add(InlineKeyboardButton(text=show_text, callback_data=printer.name))
     return keyboard.as_markup()

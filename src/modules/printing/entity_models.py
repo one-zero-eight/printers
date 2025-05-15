@@ -34,5 +34,5 @@ class JobAttributes(BaseModel):
 
 class PrinterStatus(BaseModel):
     printer: Printer
-    papers_percentage: int | None
+    total_papers: int | None
     toner_percentage: int | None

@@ -23,6 +23,7 @@ dependencies = [
     "pyipp>=0.17.0",
     "aiogram>=3.20.0.post0",
     "pypdf2>=3.0.1",
+    "beautifulsoup4>=4.13.4",
 ]
 
 [dependency-groups]
