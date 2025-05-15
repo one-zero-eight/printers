@@ -1,6 +1,7 @@
 __all__ = ["printing_repository"]
 
 import re
+import time
 
 import bs4
 import cups
@@ -39,8 +40,10 @@ class PrintingRepository:
         return None
 
     async def get_printer_status(self, printer: Printer) -> PrinterStatus:
+        _start = time.perf_counter()
         attributes = self.server.getPrinterAttributes(printer.cups_name, requested_attributes=["marker-levels"])
-        logger.info(attributes)
+        logger.info(f"Printer {printer.name} getPrinterAttributes time: {time.perf_counter() - _start}")
+        logger.info(f"Printer {printer.name} attributes: {attributes}")
 
         marker_levels = attributes.get("marker-levels")
         toner_percentage = None
@@ -51,7 +54,9 @@ class PrintingRepository:
 
         try:
             async with httpx.AsyncClient() as client:
+                _start = time.perf_counter()
                 response = await client.get(f"http://{printer.ip}")
+                logger.info(f"Printer {printer.name} fetch time: {time.perf_counter() - _start}")
                 if response.status_code == httpx.codes.OK:
                     html = response.text
                     soup = bs4.BeautifulSoup(html, "html.parser")
