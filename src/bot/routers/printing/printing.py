@@ -25,7 +25,7 @@ from src.bot.routers.printing.printing_tools import (
     update_confirmation_keyboard,
     without_throbber,
 )
-from src.modules.printing.entity_models import PrintingOptions
+from src.modules.printing.entity_models import JobStateReasonEnum, PrintingOptions
 
 router = Router(name="printing")
 
@@ -114,67 +114,89 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
     await callback.answer()
     await state.set_state(PrintWork.printing)
     await bot.send_chat_action(chat_id=callback.message.chat.id, action=ChatAction.UPLOAD_DOCUMENT)
+
+    # Get data and set up printing options
     data = await state.get_data()
     printing_options = PrintingOptions()
     printing_options.copies = data["copies"]
     printing_options.page_ranges = recalculate_page_ranges(data["page_ranges"], data["number_up"])
     printing_options.sides = data["sides"]
     printing_options.number_up = data["number_up"]
+
+    # Start the print job
     job_id = await api_client.begin_job(
         callback.from_user.id,
         data["filename"],
         data["printer"],
         printing_options,
     )
+
+    # Update UI with cancel button
+    cancel_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
+    )
     if isinstance(callback.message, Message):
-        await callback.message.edit_reply_markup(
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
-            )
+        await callback.message.edit_reply_markup(reply_markup=cancel_keyboard)
+
+    # Set up status message elements
+    layout = {"1": "1x1", "4": "2x2", "9": "3x3"}[data["number_up"]]
+    job_info = (
+        html.italic("Job\n")
+        + html.italic(f"⦁ Printer: {html.bold(data["printer"])}\n")
+        + html.italic(f"⦁ Copies: {html.bold(data["copies"])}\n")
+        + html.italic(f"⦁ Pages: {html.bold(data["page_ranges"])} (in document: {html.bold(data["pages"])})\n")
+        + html.italic(
+            f"⦁ Print on: {html.bold("One side") if data["sides"] == "one-sided" else html.bold("Two sides")}\n"
         )
-    caption = ""
+        + html.italic(f"⦁ Layout: {html.bold(layout)}\n")
+    )
+
+    # Calculate maximum wait time
+    paper_count = count_of_papers_to_print(data["page_ranges"], data["number_up"], data["sides"], data["copies"], False)
     max_sec_per_page = 60
-    for i in range(
-        max_sec_per_page
-        * count_of_papers_to_print(data["page_ranges"], data["number_up"], data["sides"], data["copies"], False)
-    ):
-        await_time = time.time_ns()
+    max_wait_time = max_sec_per_page * paper_count
+
+    # Status monitoring loop
+    iteration = 0
+    start_time = time.monotonic()
+
+    while time.monotonic() - start_time < max_wait_time:
+        # Check job status
         try:
             job_state = await api_client.check_job(callback.from_user.id, job_id)
         except httpx.HTTPStatusError:
             return
-        status_text = {
-            "job-completed-successfully": "Job is completed!",
-            "none": "Where is no job",
-            "media-empty-report": "Media is empty!",
-            "canceled-at-device": "The job was cancelled at the printer",
-            "job-printing": "Printing",
-        }.get(job_state.job_state, f"Unknown error {html.italic(job_state.job_state)}, cancelled")
-        layout = {"1": "1x1", "4": "2x2", "9": "3x3"}[data["number_up"]]
-        caption = (
-            html.italic("Job\n")
-            + html.italic(f"⦁ Printer: {html.bold(data["printer"])}\n")
-            + html.italic(f"⦁ Copies: {html.bold(data["copies"])}\n")
-            + html.italic(f"⦁ Pages: {html.bold(data["page_ranges"])} (in document: {html.bold(data["pages"])})\n")
-            + html.italic(
-                f"⦁ Print on: {html.bold("One side") if data["sides"] == "one-sided" else html.bold("Two sides")}\n"
-            )
-            + html.italic(f"⦁ Layout: {html.bold(layout)}\n")
-            + f"{html.italic("Status:")} {html.bold(f"{status_text} {"⤹⤿⤻⤺"[i % 4]}")}"
-        )
+
+        # Get status text based on job state
+
+        STATUSES: dict[JobStateReasonEnum | str, str] = {
+            JobStateReasonEnum.job_completed_successfully: "Job is completed!",
+            JobStateReasonEnum.none: "Where is no job",
+            JobStateReasonEnum.media_empty_report: "Media is empty!",
+            JobStateReasonEnum.canceled_at_device: "The job was cancelled at the printer",
+            JobStateReasonEnum.job_printing: "Printing",
+        }
+        status_text = STATUSES.get(job_state.job_state, f"Unknown error {html.italic(job_state.job_state)}, cancelled")
+
+        # Create caption with job info and status
+        caption = f"{job_info}{html.italic("Status:")} {html.bold(f"{status_text} {"⤹⤿⤻⤺"[iteration % 4]}")}"
+
+        # Exit if state changed
         if (await state.get_state()) == PrintWork.request_file.state:
             break
+
+        # Update message caption with current status
         try:
-            if isinstance(callback.message, Message):   
+            if isinstance(callback.message, Message):
                 await callback.message.edit_caption(
                     caption=caption,
-                    reply_markup=InlineKeyboardMarkup(
-                        inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
-                    ),
+                    reply_markup=cancel_keyboard,
                 )
         except aiogram.exceptions.TelegramBadRequest:
             pass
-        if job_state.job_state == "job-completed-successfully":
+
+        # Handle completed job
+        if job_state.job_state == JobStateReasonEnum.job_completed_successfully:
             try:
                 if isinstance(callback.message, Message):
                     await callback.message.edit_caption(caption=without_throbber(caption))
@@ -182,7 +204,13 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
                 pass
             await shared_messages.send_something(callback, state)
             break
-        if job_state.job_state in ["none", "media-empty-report", "canceled-at-device"]:
+
+        # Handle failed job
+        if job_state.job_state in [
+            JobStateReasonEnum.none,
+            JobStateReasonEnum.media_empty_report,
+            JobStateReasonEnum.canceled_at_device,
+        ]:
             await api_client.cancel_job(callback.from_user.id, job_id)
             try:
                 if isinstance(callback.message, Message):
@@ -193,13 +221,17 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
                 pass
             await shared_messages.send_something(callback, state)
             return
-        await_time -= time.time_ns()
-        await asyncio.sleep(max(0, 1 + await_time / 10 ** len(str(abs(await_time)))))
+
+        # Sleep for one second before next check
+        iteration += 1
+        await asyncio.sleep(1)
+
+    # Handle timeout case (only reached if the while loop completes without breaking)
     else:
         try:
             if isinstance(callback.message, Message):
                 await callback.message.edit_caption(
-                    caption=f"{without_throbber(caption)}" f"\n\n{html.bold("Job is timed out ☠️")}"
+                    caption=f"{without_throbber(caption)}\n\n{html.bold("Job is timed out ☠️")}"
                 )
         except aiogram.exceptions.TelegramBadRequest:
             pass
@@ -209,7 +241,8 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
 @router.callback_query(PrintWork.printing)
 async def print_work_cancel(callback: CallbackQuery, state: FSMContext):
     await shared_messages.send_something(callback, state)
-    await api_client.cancel_job(callback.from_user.id, int(callback.data))
+    if callback.data is not None:
+        await api_client.cancel_job(callback.from_user.id, int(callback.data))
     try:
         if isinstance(callback.message, Message):
             await callback.message.edit_caption(
