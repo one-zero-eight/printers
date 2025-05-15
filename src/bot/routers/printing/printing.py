@@ -47,23 +47,27 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
         await message.bot.download(file=file_telegram_identifier, destination=file)
     else:
         file = io.BytesIO(message.text.encode("utf8"))
-    status, detail = await api_client.prepare_document(message.from_user.id, file_telegram_name, file)
-    await state.update_data(pages=detail["pages"])
-    await state.update_data(filename=detail["filename"])
-    if status is None:
-        await message.answer(
-            f"Unfortunately, we cannot print this file yet\n"
-            f"because of {html.bold(detail)}\n\n"
-            f"Please, send a file of a supported type:\n"
-            f"{html.blockquote(".doc\n.docx\n.png\n.txt\n"
-                                                ".jpg\n.md\n.bmp\n.xlsx\n.xls\n.odt\n.ods")}"
-        )
-        return
+
+    try:
+        result = await api_client.prepare_document(message.from_user.id, file_telegram_name, file)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 400:
+            await message.answer(
+                f"Unfortunately, we cannot print this file yet\n"
+                f"because of {html.bold(e.response.json()["detail"])}\n\n"
+                f"Please, send a file of a supported type:\n"
+                f"{html.blockquote(".doc\n.docx\n.png\n.txt\n.jpg\n.md\n.bmp\n.xlsx\n.xls\n.odt\n.ods")}"
+            )
+            return
+        raise
+
+    await state.update_data(pages=result.pages)
+    await state.update_data(filename=result.filename)
     data = await state.get_data()
     if "copies" not in data:
         data["copies"] = "1"
     if "page_ranges" not in data:
-        data["page_ranges"] = f"1-{detail["pages"]}"
+        data["page_ranges"] = f"1-{result.pages}"
     if "sides" not in data:
         data["sides"] = "one-sided"
     if "number_up" not in data:
@@ -140,7 +144,7 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
             "media-empty-report": "Media is empty!",
             "canceled-at-device": "The job was cancelled at the printer",
             "job-printing": "Printing",
-        }.get(job_state["job-state-reasons"], f"Unknown error {html.italic(job_state["job-state-reasons"])}, cancelled")
+        }.get(job_state.job_state, f"Unknown error {html.italic(job_state.job_state)}, cancelled")
         layout = {"1": "1x1", "4": "2x2", "9": "3x3"}[data["number_up"]]
         caption = (
             html.italic("Job\n")
@@ -151,7 +155,7 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
                 f"⦁ Print on: {html.bold("One side") if data["sides"] == "one-sided" else html.bold("Two sides")}\n"
             )
             + html.italic(f"⦁ Layout: {html.bold(layout)}\n")
-            + f"{html.italic("Status:")} {html.bold(f"{status_text} {"⤹ ⤿ ⤻ ⤺".split()[i % 4]}")}"
+            + f"{html.italic("Status:")} {html.bold(f"{status_text} {"⤹⤿⤻⤺"[i % 4]}")}"
         )
         if (await state.get_state()) == PrintWork.request_file.state:
             break
@@ -164,14 +168,14 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
             )
         except aiogram.exceptions.TelegramBadRequest:
             pass
-        if job_state["job-state-reasons"] == "job-completed-successfully":
+        if job_state.job_state == "job-completed-successfully":
             try:
                 await callback.message.edit_caption(caption=without_throbber(caption))
             except aiogram.exceptions.TelegramBadRequest:
                 pass
             await shared_messages.send_something(callback, state)
             break
-        if job_state["job-state-reasons"] in "none media-empty-report canceled-at-device".split():
+        if job_state.job_state in ["none", "media-empty-report", "canceled-at-device"]:
             await api_client.cancel_job(callback.from_user.id, job_id)
             try:
                 await callback.message.edit_caption(
@@ -184,7 +188,6 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
         await_time -= time.time_ns()
         await asyncio.sleep(max(0, 1 + await_time / 10 ** len(str(abs(await_time)))))
     else:
-        await api_client.cancel_job(callback.from_user.id, job_id)
         try:
             await callback.message.edit_caption(
                 caption=f"{without_throbber(caption)}" f"\n\n{html.bold("Job is timed out ☠️")}"

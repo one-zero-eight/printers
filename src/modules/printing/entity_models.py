@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from src.config_schema import Printer
+
 
 class PrintingOptions(BaseModel):
     copies: str | None = None
@@ -28,3 +30,9 @@ class JobAttributes(BaseModel):
     "The current state of a job from the getJobAttributes function"
     printer_state: list[str] | None = Field(None, alias="job-printer-state-reasons")
     "The current state of printer: 'cups-waiting-for-job-completed', 'media-needed-warning', 'media-empty-error', 'input-tray-missing', 'media-empty-report'"
+
+
+class PrinterStatus(BaseModel):
+    printer: Printer
+    papers_percentage: int | None
+    toner_percentage: int | None

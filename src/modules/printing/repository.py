@@ -33,6 +33,11 @@ class PrintingRepository:
         for elem in settings.api.printers_list:
             if elem.name == name:
                 return elem
+        return None
+
+    def get_printer_status(self, cups_name: str) -> dict:
+        attributes = self.server.getPrinterAttributes(cups_name)
+        return attributes
 
     def print_file(self, printer: Printer, file_name: str, title: str, options: PrintingOptions) -> int:
         options_dict = options.model_dump(by_alias=True, exclude_none=True)

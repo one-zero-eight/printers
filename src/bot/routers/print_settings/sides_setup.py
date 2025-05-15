@@ -36,9 +36,7 @@ async def job_settings_sides(callback: CallbackQuery, state: FSMContext):
     )
 
 
-@router.callback_query(
-    SetupSidesWork.set_sides, lambda callback: callback.data in "one-sided two-sided-long-edge".split()
-)
+@router.callback_query(SetupSidesWork.set_sides, lambda callback: callback.data in ["one-sided", "two-sided-long-edge"])
 async def apply_settings_sides(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await state.update_data(sides=callback.data)
     data = await state.get_data()

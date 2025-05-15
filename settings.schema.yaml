@@ -87,6 +87,11 @@ $defs:
         type: string
       accounts:
         $ref: '#/$defs/Accounts'
+      temp_dir:
+        default: ./tmp
+        description: Temporary directory to store converted and input files
+        title: Temp Dir
+        type: string
     required:
     - database_uri
     - printers_list

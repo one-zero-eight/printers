@@ -38,7 +38,7 @@ async def job_settings_layout(callback: CallbackQuery, state: FSMContext):
     )
 
 
-@router.callback_query(SetupLayoutWork.set_layout, lambda callback: callback.data in "1 4 9".split())
+@router.callback_query(SetupLayoutWork.set_layout, lambda callback: callback.data in ["1", "4", "9"])
 async def apply_settings_layout(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await state.update_data(number_up=callback.data)
     data = await state.get_data()

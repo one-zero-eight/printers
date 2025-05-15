@@ -56,6 +56,8 @@ class ApiSettings(SettingBaseModel):
     "Allowed origins for CORS: from which domains requests to the API are allowed. Specify as a regex: `https://.*.innohassle.ru`"
     accounts: Accounts
     "InNoHassle Accounts integration settings"
+    temp_dir: str = "./tmp"
+    "Temporary directory to store converted and input files"
 
 
 class BotSettings(SettingBaseModel):
