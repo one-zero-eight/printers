@@ -12,8 +12,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import timeout
 from pymongo.errors import ConnectionFailure
 
+from src.api.logging_ import logger
 from src.config import settings
-from src.logging_ import logger
 from src.storages.mongo import document_models
 
 

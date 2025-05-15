@@ -10,9 +10,9 @@ from fastapi.exceptions import HTTPException
 from starlette.responses import FileResponse
 
 from src.api.dependencies import USER_AUTH
+from src.api.logging_ import logger
 from src.config import settings
 from src.config_schema import Printer
-from src.logging_ import logger
 from src.modules.converting.repository import converting_repository
 from src.modules.printing.entity_models import JobAttributes, PrinterStatus, PrintingOptions
 from src.modules.printing.repository import printing_repository
@@ -60,6 +60,16 @@ async def get_printers_status(_innohassle_user_id: USER_AUTH) -> list[PrinterSta
     for status in result:
         logger.info(f"Status {status}")
     return result
+
+
+@router.get("/get_printer_status")
+async def get_printer_status(printer_name: str, _innohassle_user_id: USER_AUTH) -> PrinterStatus:
+    printer = printing_repository.get_printer(printer_name)
+    if not printer:
+        raise HTTPException(400, "No such printer")
+    status = await printing_repository.get_printer_status(printer)
+    logger.info(f"Printer {printer_name} status: {status}")
+    return status
 
 
 @router.post("/prepare", responses={400: {"description": "Unsupported format"}})
@@ -131,6 +141,7 @@ async def cancel_preparation(filename: str, innohassle_user_id: USER_AUTH) -> No
     else:
         raise HTTPException(404, "No such file")
 
+
 @router.post("/debug/getPrinterAttributes")
 async def get_printer_attributes(
     _innohassle_user_id: USER_AUTH,
@@ -138,6 +149,7 @@ async def get_printer_attributes(
 ) -> dict[str, Any]:
     cups_server = printing_repository.server
     return cups_server.getPrinterAttributes(name)
+
 
 @router.post("/debug/createJob")
 async def create_job(
@@ -152,6 +164,7 @@ async def create_job(
         job_id = cups_server.createJob(printer, f.name, {})
         logger.info(f"Job {job_id} has started")
         return job_id
+
 
 @router.post("/debug/getJobAttributes")
 async def get_job_attributes(

@@ -8,9 +8,9 @@ import cups
 import httpx
 from cachetools import TTLCache
 
+from src.api.logging_ import logger
 from src.config import settings
 from src.config_schema import Printer
-from src.logging_ import logger
 from src.modules.printing.entity_models import JobAttributes, PrinterStatus, PrintingOptions
 
 
@@ -47,7 +47,7 @@ class PrintingRepository:
     async def get_printer_status(self, printer: Printer) -> PrinterStatus:
         _start = time.perf_counter()
         attributes = self.server.getPrinterAttributes(printer.cups_name, requested_attributes=["marker-levels"])
-        logger.info(f"Printer {printer.name} getPrinterAttributes time: {time.perf_counter() - _start}")
+        logger.info(f"Printer {printer.name} getPrinterAttributes time: {time.perf_counter() - _start:.4f}s")
         logger.info(f"Printer {printer.name} attributes: {attributes}")
 
         marker_levels = attributes.get("marker-levels")
@@ -82,7 +82,7 @@ class PrintingRepository:
                 response = await client.get(f"http://{printer.ip}")
             else:
                 response = await client.get(f"http://{printer.ip}:631")
-            logger.info(f"Printer {printer.name} fetch time: {time.perf_counter() - _start}")
+            logger.info(f"Printer {printer.name} fetch time: {time.perf_counter() - _start:.4f}s")
             if response.status_code == httpx.codes.OK:
                 percentage = self._parse_paper_percentage(response.text)
                 if percentage is not None:
@@ -123,11 +123,11 @@ class PrintingRepository:
                     # Extract level and maxcapacity using regex
                     level_match = re.search(r"level=(\d+)", font.text)
                     maxcapacity_match = re.search(r"maxcapacity=(\d+)", font.text)
-                    
+
                     if level_match and maxcapacity_match:
                         level = int(level_match.group(1))
                         maxcapacity = int(maxcapacity_match.group(1))
-                        
+
                         if maxcapacity > 0:
                             return int((level / maxcapacity) * 100)
         return None
@@ -138,12 +138,22 @@ class PrintingRepository:
 
     def get_job_status(self, job_id: int) -> JobAttributes:
         attributes = self.server.getJobAttributes(
-            job_id, requested_attributes=["job-state-reasons", "job-printer-state-reasons"]
+            job_id,
+            requested_attributes=[
+                "job-state",
+                "job-state-reasons",
+                "job-state-message",
+                "job-printer-state-reasons",
+                "job-printer-state-message",
+            ],
         )
-        
+
         return JobAttributes(
-            job_state=JobAttributes.parse_job_state(attributes.get("job-state-reasons", "")),
+            job_state=attributes["job-state"],
+            job_state_reasons=JobAttributes.parse_job_state_reasons(attributes.get("job-state-reasons", "")),
+            job_state_message=attributes.get("job-state-message"),
             printer_state=JobAttributes.parse_printer_state(attributes.get("job-printer-state-reasons", [])),
+            printer_state_message=attributes.get("job-printer-state-message"),
         )
 
     def cancel_job(self, job_id: int):

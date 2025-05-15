@@ -1,9 +1,12 @@
 import asyncio
 
-from aiogram import Bot, Dispatcher
+from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
+import src.bot.logging_  # noqa: F401
+from src.bot.dispatcher import CustomDispatcher
+from src.bot.middlewares import LogAllEventsMiddleware
 from src.bot.routers.print_settings.copies_setup import router as copies_setup_router
 from src.bot.routers.print_settings.layout_setup import router as layout_setup_router
 from src.bot.routers.print_settings.pages_setup import router as pages_setup_router
@@ -15,8 +18,11 @@ from src.config import settings
 
 
 async def main() -> None:
-    dispatcher = Dispatcher()
+    dispatcher = CustomDispatcher()
     bot = Bot(token=settings.bot.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    log_all_events_middleware = LogAllEventsMiddleware()
+    dispatcher.message.middleware(log_all_events_middleware)
+    dispatcher.callback_query.middleware(log_all_events_middleware)
     for router in (
         registration_router,
         printing_router,

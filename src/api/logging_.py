@@ -7,7 +7,6 @@ import os
 from typing import Any
 
 import fastapi
-import yaml
 from fastapi.dependencies.models import Dependant
 from starlette.concurrency import run_in_threadpool
 
@@ -18,9 +17,36 @@ class RelativePathFilter(logging.Filter):
         return True
 
 
-with open("logging.yaml") as f:
-    config = yaml.safe_load(f)
-    logging.config.dictConfig(config)
+dictConfig = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "()": "colorlog.ColoredFormatter",
+            "format": "[%(black)s%(asctime)s%(reset)s] "
+            "[%(log_color)s%(levelname)s%(reset)s] "
+            "[%(name)s] %(message)s",
+        },
+        "src": {
+            "()": "colorlog.ColoredFormatter",
+            "format": "[%(black)s%(asctime)s%(reset)s] "
+            "[%(log_color)s%(levelname)s%(reset)s] "
+            '[%(cyan)sFile "%(relativePath)s", line '
+            "%(lineno)d%(reset)s] %(message)s",
+        },
+    },
+    "handlers": {
+        "default": {"class": "logging.StreamHandler", "formatter": "default", "stream": "ext://sys.stdout"},
+        "src": {"class": "logging.StreamHandler", "formatter": "src", "stream": "ext://sys.stdout"},
+    },
+    "loggers": {
+        "src": {"handlers": ["src"], "level": "INFO", "propagate": False},
+        "uvicorn.access": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "uvicorn.error": {"handlers": ["default"], "level": "INFO", "propagate": False},
+    },
+}
+
+logging.config.dictConfig(dictConfig)
 
 logger = logging.getLogger("src")
 logger.addFilter(RelativePathFilter())

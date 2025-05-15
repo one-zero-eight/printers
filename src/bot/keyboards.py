@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import assert_never
 
 from aiogram.types import (
@@ -46,7 +47,7 @@ confirmation_keyboard = InlineKeyboardMarkup(
 )
 
 
-def printers_keyboard(printers: list[PrinterStatus | Printer]) -> InlineKeyboardMarkup:
+def printers_keyboard(printers: Sequence[PrinterStatus | Printer]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
 
     for status_or_printer in printers:

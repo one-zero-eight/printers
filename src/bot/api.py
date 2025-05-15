@@ -95,5 +95,12 @@ class InNoHasslePrintAPI:
             adapter = TypeAdapter(list[PrinterStatus])
             return adapter.validate_python(response.json())
 
+    async def get_printer_status(self, telegram_id: int, printer_name: str) -> PrinterStatus:
+        params = {"printer_name": printer_name}
+        async with self._create_client(telegram_id) as client:
+            response = await client.get("/print/get_printer_status", params=params)
+            response.raise_for_status()
+            return PrinterStatus.model_validate(response.json())
+
 
 api_client: InNoHasslePrintAPI = InNoHasslePrintAPI(settings.bot.api_url)

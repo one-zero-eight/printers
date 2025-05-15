@@ -3,11 +3,23 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from src.bot.routers.printing.printing_states import PrintWork
+from src.modules.printing.entity_models import JobAttributes, JobStateEnum
 
 
-async def send_something(callback: CallbackQuery, state: FSMContext):
+async def send_something(callback: CallbackQuery, state: FSMContext, job_attributes: JobAttributes | None = None):
     await state.set_state(PrintWork.request_file)
-    await callback.message.answer(
-        html.bold("🖨 We are ready to print!\n") + f"Just send something to be printed\n\n"
-        f"Current printer is {html.bold((await state.get_data())["printer"])}"
-    )
+    note = None
+    if job_attributes:  # Previous job was printed
+        if job_attributes.job_state == JobStateEnum.canceled:
+            note = "❌ Job was canceled"
+        elif job_attributes.job_state == JobStateEnum.aborted:
+            note = "❌ Job was aborted"
+        elif job_attributes.job_state == JobStateEnum.completed:
+            note = "✅ Job was completed"
+    text = ""
+    if note:
+        text = f"{note}\n\n"
+    text += html.bold("🖨 We are ready to print!\n") + "Just send something to be printed\n\n"
+    text += f"Current printer is {html.bold((await state.get_data())["printer"])}"
+
+    await callback.message.answer(text)

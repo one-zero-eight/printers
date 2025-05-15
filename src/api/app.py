@@ -7,7 +7,7 @@ from fastapi.routing import APIRoute
 from fastapi_swagger import patch_fastapi
 from starlette.middleware.cors import CORSMiddleware
 
-import src.logging_  # noqa: F401
+import src.api.logging_  # noqa: F401
 from src.api.lifespan import lifespan
 from src.config import settings
 

@@ -18,23 +18,22 @@ from aiogram.types import (
 from src.bot import shared_messages
 from src.bot.api import api_client
 from src.bot.keyboards import confirmation_keyboard
+from src.bot.logging_ import logger
 from src.bot.routers.printing.printing_states import PrintWork
 from src.bot.routers.printing.printing_tools import (
     count_of_papers_to_print,
+    format_printing_message,
     recalculate_page_ranges,
     update_confirmation_keyboard,
     without_throbber,
 )
-from src.modules.printing.entity_models import JobStateReasonEnum, PrintingOptions
+from src.modules.printing.entity_models import JobStateEnum, PrintingOptions
 
 router = Router(name="printing")
 
 
-@router.message(PrintWork.request_file)
+@router.message(PrintWork.request_file, F.document | F.photo)
 async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot):
-    if not any((message.document, message.photo, message.text)):
-        await message.answer("Only documents, photos, and text messages are supported to be printed")
-        return
     await bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.UPLOAD_DOCUMENT)
     file_telegram_identifier = (
         message.document.file_id if message.document else message.photo[-1].file_id if message.photo else None
@@ -138,19 +137,6 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
     if isinstance(callback.message, Message):
         await callback.message.edit_reply_markup(reply_markup=cancel_keyboard)
 
-    # Set up status message elements
-    layout = {"1": "1x1", "4": "2x2", "9": "3x3"}[data["number_up"]]
-    job_info = (
-        html.italic("Job\n")
-        + html.italic(f"⦁ Printer: {html.bold(data["printer"])}\n")
-        + html.italic(f"⦁ Copies: {html.bold(data["copies"])}\n")
-        + html.italic(f"⦁ Pages: {html.bold(data["page_ranges"])} (in document: {html.bold(data["pages"])})\n")
-        + html.italic(
-            f"⦁ Print on: {html.bold("One side") if data["sides"] == "one-sided" else html.bold("Two sides")}\n"
-        )
-        + html.italic(f"⦁ Layout: {html.bold(layout)}\n")
-    )
-
     # Calculate maximum wait time
     paper_count = count_of_papers_to_print(data["page_ranges"], data["number_up"], data["sides"], data["copies"], False)
     max_sec_per_page = 60
@@ -161,95 +147,64 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
     start_time = time.monotonic()
 
     while time.monotonic() - start_time < max_wait_time:
-        # Check job status
-        try:
-            job_state = await api_client.check_job(callback.from_user.id, job_id)
-        except httpx.HTTPStatusError:
-            return
-
-        # Get status text based on job state
-
-        STATUSES: dict[JobStateReasonEnum | str, str] = {
-            JobStateReasonEnum.job_completed_successfully: "Job is completed!",
-            JobStateReasonEnum.none: "Where is no job",
-            JobStateReasonEnum.media_empty_report: "Media is empty!",
-            JobStateReasonEnum.canceled_at_device: "The job was cancelled at the printer",
-            JobStateReasonEnum.job_printing: "Printing",
-        }
-        status_text = STATUSES.get(job_state.job_state, f"Unknown error {html.italic(job_state.job_state)}, cancelled")
-
-        # Create caption with job info and status
-        caption = f"{job_info}{html.italic("Status:")} {html.bold(f"{status_text} {"⤹⤿⤻⤺"[iteration % 4]}")}"
-
-        # Exit if state changed
+        iteration += 1
+        # Exit if state changed (user clicked cancel)
         if (await state.get_state()) == PrintWork.request_file.state:
             break
 
-        # Update message caption with current status
+        # Get job attributes
+        try:
+            job_attributes = await api_client.check_job(callback.from_user.id, job_id)
+        except httpx.HTTPStatusError as e:
+            logger.warning(f"Failed to get job attributes for job {job_id}: {e}")
+            await asyncio.sleep(1)
+            continue
+
+        # Format message
+        caption = format_printing_message(data, job_attributes, iteration)
+
+        # Update message caption with all the information
         try:
             if isinstance(callback.message, Message):
-                await callback.message.edit_caption(
-                    caption=caption,
-                    reply_markup=cancel_keyboard,
-                )
+                await callback.message.edit_caption(caption=caption)
         except aiogram.exceptions.TelegramBadRequest:
             pass
 
-        # Handle completed job
-        if job_state.job_state == JobStateReasonEnum.job_completed_successfully:
-            try:
-                if isinstance(callback.message, Message):
-                    await callback.message.edit_caption(caption=without_throbber(caption))
-            except aiogram.exceptions.TelegramBadRequest:
-                pass
-            await shared_messages.send_something(callback, state)
+        # Handle ended job
+        if job_attributes.job_state in [
+            JobStateEnum.completed,
+            JobStateEnum.canceled,
+            JobStateEnum.aborted,
+        ]:
+            await shared_messages.send_something(callback, state, job_attributes)
             break
 
-        # Handle failed job
-        if job_state.job_state in [
-            JobStateReasonEnum.none,
-            JobStateReasonEnum.media_empty_report,
-            JobStateReasonEnum.canceled_at_device,
-        ]:
-            await api_client.cancel_job(callback.from_user.id, job_id)
-            try:
-                if isinstance(callback.message, Message):
-                    await callback.message.edit_caption(
-                        caption=f"{without_throbber(caption)}\n\n{html.bold("Job failed ☠️")}"
-                    )
-            except aiogram.exceptions.TelegramBadRequest:
-                pass
-            await shared_messages.send_something(callback, state)
-            return
-
         # Sleep for one second before next check
-        iteration += 1
         await asyncio.sleep(1)
 
-    # Handle timeout case (only reached if the while loop completes without breaking)
+    # Handle timeout case
     else:
         try:
             if isinstance(callback.message, Message):
-                await callback.message.edit_caption(
-                    caption=f"{without_throbber(caption)}\n\n{html.bold("Job is timed out ☠️")}"
-                )
+                caption = format_printing_message(data, job_attributes, timed_out=True)
+                await callback.message.edit_caption(caption=caption)
         except aiogram.exceptions.TelegramBadRequest:
             pass
-        await shared_messages.send_something(callback, state)
+        await shared_messages.send_something(callback, state, job_attributes)
 
 
 @router.callback_query(PrintWork.printing)
 async def print_work_cancel(callback: CallbackQuery, state: FSMContext):
-    await shared_messages.send_something(callback, state)
     if callback.data is not None:
-        await api_client.cancel_job(callback.from_user.id, int(callback.data))
-    try:
-        if isinstance(callback.message, Message):
-            await callback.message.edit_caption(
-                caption=f"{without_throbber(callback.message.caption)}"
-                f"\n\n{html.bold("Cancelled on demand")}"
-                "\nHowever, we unable to revoke partially printed jobs."
-                f"\nYou should try this with printer"
-            )
-    except aiogram.exceptions.TelegramBadRequest:
-        pass
+        job_id = int(callback.data)
+        data = await state.get_data()
+        job_attributes = await api_client.check_job(callback.from_user.id, job_id)
+        await api_client.cancel_job(callback.from_user.id, job_id)
+        await shared_messages.send_something(callback, state, job_attributes)
+
+        try:
+            caption = format_printing_message(data, job_attributes, canceled_manually=True)
+            if isinstance(callback.message, Message):
+                await callback.message.edit_caption(caption=caption)
+        except (aiogram.exceptions.TelegramBadRequest, KeyError):
+            pass
