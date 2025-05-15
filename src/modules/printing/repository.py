@@ -61,7 +61,7 @@ class PrintingRepository:
                 # <br>
 
                 # Find "printer-input-tray"
-                printer_input_tray = soup.find_next("font", string="printer-input-tray")
+                printer_input_tray = soup.find_next("font", string="printer-input-tray:")
                 if printer_input_tray:
                     # find previous <br>
                     previous_br = printer_input_tray.find_previous("br")
