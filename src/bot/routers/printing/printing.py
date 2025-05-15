@@ -42,8 +42,11 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
     file_telegram_name = (
         message.document.file_name if message.document else "Photo.png" if message.photo else "Text.txt"
     )
+    if not file_telegram_name:
+        await message.answer("File name is not supported")
+        return
     file = io.BytesIO()
-    if message.document or message.photo:
+    if file_telegram_identifier:
         await message.bot.download(file=file_telegram_identifier, destination=file)
     else:
         file = io.BytesIO(message.text.encode("utf8"))
@@ -96,10 +99,11 @@ async def print_work_preparation_cancel(callback: CallbackQuery, state: FSMConte
     await callback.answer()
     await api_client.cancel_not_started_job(callback.from_user.id, (await state.get_data())["filename"])
     try:
-        await callback.message.edit_caption(
-            caption=f"{without_throbber(callback.message.caption)}"
-            f"\n\n{html.bold("You've cancelled this print work 🤷‍♀️")}"
-        )
+        if isinstance(callback.message, Message):
+            await callback.message.edit_caption(
+                caption=f"{without_throbber(callback.message.caption)}"
+                f"\n\n{html.bold("You've cancelled this print work 🤷‍♀️")}"
+            )
     except aiogram.exceptions.TelegramBadRequest:
         pass
     await shared_messages.send_something(callback, state)
@@ -122,11 +126,12 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
         data["printer"],
         printing_options,
     )
-    await callback.message.edit_reply_markup(
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
+    if isinstance(callback.message, Message):
+        await callback.message.edit_reply_markup(
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
+            )
         )
-    )
     caption = ""
     max_sec_per_page = 60
     for i in range(
@@ -160,17 +165,19 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
         if (await state.get_state()) == PrintWork.request_file.state:
             break
         try:
-            await callback.message.edit_caption(
-                caption=caption,
-                reply_markup=InlineKeyboardMarkup(
-                    inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
-                ),
-            )
+            if isinstance(callback.message, Message):   
+                await callback.message.edit_caption(
+                    caption=caption,
+                    reply_markup=InlineKeyboardMarkup(
+                        inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
+                    ),
+                )
         except aiogram.exceptions.TelegramBadRequest:
             pass
         if job_state.job_state == "job-completed-successfully":
             try:
-                await callback.message.edit_caption(caption=without_throbber(caption))
+                if isinstance(callback.message, Message):
+                    await callback.message.edit_caption(caption=without_throbber(caption))
             except aiogram.exceptions.TelegramBadRequest:
                 pass
             await shared_messages.send_something(callback, state)
@@ -178,9 +185,10 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
         if job_state.job_state in ["none", "media-empty-report", "canceled-at-device"]:
             await api_client.cancel_job(callback.from_user.id, job_id)
             try:
-                await callback.message.edit_caption(
-                    caption=f"{without_throbber(caption)}\n\n{html.bold("Job failed ☠️")}"
-                )
+                if isinstance(callback.message, Message):
+                    await callback.message.edit_caption(
+                        caption=f"{without_throbber(caption)}\n\n{html.bold("Job failed ☠️")}"
+                    )
             except aiogram.exceptions.TelegramBadRequest:
                 pass
             await shared_messages.send_something(callback, state)
@@ -189,9 +197,10 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
         await asyncio.sleep(max(0, 1 + await_time / 10 ** len(str(abs(await_time)))))
     else:
         try:
-            await callback.message.edit_caption(
-                caption=f"{without_throbber(caption)}" f"\n\n{html.bold("Job is timed out ☠️")}"
-            )
+            if isinstance(callback.message, Message):
+                await callback.message.edit_caption(
+                    caption=f"{without_throbber(caption)}" f"\n\n{html.bold("Job is timed out ☠️")}"
+                )
         except aiogram.exceptions.TelegramBadRequest:
             pass
         await shared_messages.send_something(callback, state)
@@ -202,11 +211,12 @@ async def print_work_cancel(callback: CallbackQuery, state: FSMContext):
     await shared_messages.send_something(callback, state)
     await api_client.cancel_job(callback.from_user.id, int(callback.data))
     try:
-        await callback.message.edit_caption(
-            caption=f"{without_throbber(callback.message.caption)}"
-            f"\n\n{html.bold("Cancelled on demand")}"
-            "\nHowever, we unable to revoke partially printed jobs."
-            f"\nYou should try this with printer"
-        )
+        if isinstance(callback.message, Message):
+            await callback.message.edit_caption(
+                caption=f"{without_throbber(callback.message.caption)}"
+                f"\n\n{html.bold("Cancelled on demand")}"
+                "\nHowever, we unable to revoke partially printed jobs."
+                f"\nYou should try this with printer"
+            )
     except aiogram.exceptions.TelegramBadRequest:
         pass

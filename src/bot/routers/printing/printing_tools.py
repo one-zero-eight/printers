@@ -46,7 +46,9 @@ def recalculate_page_ranges(page_range: str, number_up: str) -> str:
     )
 
 
-def without_throbber(string: str):
+def without_throbber(string: str | None):
+    if string is None:
+        return string
     for elem in "⤹⤿⤻⤺":
         string = string.replace(elem, "")
     return string.replace("Status", "Last status")
