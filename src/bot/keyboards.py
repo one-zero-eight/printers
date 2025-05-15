@@ -57,5 +57,5 @@ async def printers_keyboard(message: Message | CallbackQuery) -> InlineKeyboardM
             show_text += f" (🩸 {status.toner_percentage}%)"
         elif status.total_papers is not None:
             show_text += f" (📄 {status.total_papers})"
-        keyboard.add(InlineKeyboardButton(text=show_text, callback_data=printer.name))
+        keyboard.row(InlineKeyboardButton(text=show_text, callback_data=printer.name))
     return keyboard.as_markup()
