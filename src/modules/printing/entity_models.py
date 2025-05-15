@@ -97,6 +97,7 @@ class JobAttributes(BaseModel):
 
     @field_validator("printer_state", mode="before")
     def validate_printer_state(cls, value: list[str]):
+        logger.info(f"Printer state: {value}")
         _result = []
         for v in value:
             try:
