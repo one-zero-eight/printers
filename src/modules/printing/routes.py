@@ -130,3 +130,33 @@ async def cancel_preparation(filename: str, innohassle_user_id: USER_AUTH) -> No
         del tempfiles[(innohassle_user_id, filename)]
     else:
         raise HTTPException(404, "No such file")
+
+@router.post("/debug/getPrinterAttributes")
+async def get_printer_attributes(
+    _innohassle_user_id: USER_AUTH,
+    name: str,
+) -> dict[str, Any]:
+    cups_server = printing_repository.server
+    return cups_server.getPrinterAttributes(name)
+
+@router.post("/debug/createJob")
+async def create_job(
+    _innohassle_user_id: USER_AUTH,
+    printer: str,
+    file_upload_file: UploadFile,
+) -> int:
+    cups_server = printing_repository.server
+    with tempfile.NamedTemporaryFile(dir=settings.api.temp_dir, suffix=".pdf") as f:
+        f.write(await file_upload_file.read())
+        f.flush()
+        job_id = cups_server.createJob(printer, f.name, {})
+        logger.info(f"Job {job_id} has started")
+        return job_id
+
+@router.post("/debug/getJobAttributes")
+async def get_job_attributes(
+    _innohassle_user_id: USER_AUTH,
+    job_id: int,
+) -> dict[str, Any]:
+    cups_server = printing_repository.server
+    return cups_server.getJobAttributes(job_id)
