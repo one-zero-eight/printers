@@ -1,3 +1,4 @@
+import asyncio
 import os
 import pathlib
 import tempfile
@@ -51,12 +52,13 @@ def get_printers(_innohassle_user_id: USER_AUTH) -> list[Printer]:
 
 
 @router.get("/get_printers_status")
-def get_printers_status(_innohassle_user_id: USER_AUTH) -> list[PrinterStatus]:
-    result: list[PrinterStatus] = []
-    for printer in settings.api.printers_list:
-        status = printing_repository.get_printer_status(printer)
-        logger.info(f"Printer {printer.name} status: {status}")
-        result.append(status)
+async def get_printers_status(_innohassle_user_id: USER_AUTH) -> list[PrinterStatus]:
+    result: list[PrinterStatus] = await asyncio.gather(
+        *(printing_repository.get_printer_status(printer) for printer in settings.api.printers_list)
+    )
+
+    for status in result:
+        logger.info(f"Status {status}")
     return result
 
 

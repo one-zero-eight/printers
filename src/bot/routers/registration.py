@@ -1,6 +1,7 @@
 import asyncio
 
 from aiogram import Bot, Router, html, types
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -10,6 +11,7 @@ from aiogram.types import (
 )
 
 from src.bot import shared_messages
+from src.bot.api import api_client
 from src.bot.entry_filters import InnohassleUserFilter
 from src.bot.keyboards import printers_keyboard
 
@@ -21,16 +23,32 @@ class RegistrationWork(StatesGroup):
 
 
 @router.message(Command("start"), InnohassleUserFilter())
-async def command_start_handler(message: Message, state: FSMContext):
+async def command_start_handler(message: Message, state: FSMContext, bot: Bot):
     await state.clear()
     await state.set_state(RegistrationWork.printer_is_not_set)
-    await message.answer(
+    printers = await api_client.get_printers_list(message.from_user.id)
+
+    msg = await message.answer(
         f"👋 Hello, {html.bold(message.from_user.first_name)}\n"
         f"This is a bot for printing documents with\n{html.bold("Innopolis University printers!")}\n\n"
         "❓ About: /help\n\n"
         f"To proceed, please, {html.bold("choose a printer")}",
-        reply_markup=await printers_keyboard(message),
+        reply_markup=printers_keyboard(printers),
     )
+
+    async def job():
+        printer_statuses = await api_client.get_printers_status_list(message.from_user.id)
+        new_reply_markup = printers_keyboard(printer_statuses)
+        try:
+            await bot.edit_message_reply_markup(
+                chat_id=message.chat.id,
+                message_id=msg.message_id,
+                reply_markup=new_reply_markup,
+            )
+        except TelegramBadRequest:
+            pass
+
+    asyncio.create_task(job())
 
 
 @router.callback_query(RegistrationWork.printer_is_not_set)
