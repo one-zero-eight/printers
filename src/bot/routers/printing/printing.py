@@ -124,7 +124,7 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
         )
     )
     caption = ""
-    max_sec_per_page = 20
+    max_sec_per_page = 60
     for i in range(
         max_sec_per_page
         * count_of_papers_to_print(data["page_ranges"], data["number_up"], data["sides"], data["copies"], False)
