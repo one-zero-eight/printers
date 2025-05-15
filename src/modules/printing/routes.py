@@ -11,6 +11,7 @@ from starlette.responses import FileResponse
 from src.api.dependencies import USER_AUTH
 from src.config import settings
 from src.config_schema import Printer
+from src.logging_ import logger
 from src.modules.converting.repository import converting_repository
 from src.modules.printing.entity_models import JobAttributes, PrintingOptions
 from src.modules.printing.repository import printing_repository
@@ -31,8 +32,9 @@ async def job_status(job_id: int, _innohassle_user_id: USER_AUTH) -> JobAttribut
     """
     Returns the status of a job
     """
-
-    return printing_repository.get_job_status(job_id)
+    status = printing_repository.get_job_status(job_id)
+    logger.info(f"Job {job_id} status: {status}")
+    return status
 
 
 @router.get("/get_file", responses={404: {"description": "No such file"}})
