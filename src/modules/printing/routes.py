@@ -54,7 +54,7 @@ def get_printers(_innohassle_user_id: USER_AUTH) -> list[Printer]:
 def get_printers_status(_innohassle_user_id: USER_AUTH) -> list[PrinterStatus]:
     result: list[PrinterStatus] = []
     for printer in settings.api.printers_list:
-        status = printing_repository.get_printer_status(printer.name)
+        status = printing_repository.get_printer_status(printer.cups_name)
         logger.info(f"Printer {printer.name} status: {status}")
         result.append(
             PrinterStatus(
