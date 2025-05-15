@@ -36,7 +36,10 @@ class PrintingRepository:
         return None
 
     def get_printer_status(self, cups_name: str) -> dict:
-        attributes = self.server.getPrinterAttributes(cups_name)
+        attributes = self.server.getPrinterAttributes(
+            cups_name, requested_attributes=["printer-input-tray", "marker-levels"]
+        )
+        logger.info(attributes)
         return attributes
 
     def print_file(self, printer: Printer, file_name: str, title: str, options: PrintingOptions) -> int:
