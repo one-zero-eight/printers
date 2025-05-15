@@ -1,24 +1,29 @@
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from src.config_schema import Printer
 from src.logging_ import logger
+from src.pydantic_base import BaseSchema
 
 
-class PrintingOptions(BaseModel):
-    copies: str | None = None
+class PrintingOptions(BaseSchema):
+    copies: str | None = Field(default=None)
     "Count of copies"
     page_ranges: str | None = Field(default=None, alias="page-ranges")
     "Which page ranges to print"
-    sides: Literal["one-sided", "two-sided-long-edge"] | None = None
+    sides: Literal["one-sided", "two-sided-long-edge"] | None = Field(default=None)
     "One-sided or double-sided printing"
     number_up: Literal["1", "4", "9"] | None = Field(default=None, alias="number-up")
     "Count of pages on a list"
 
 
 class JobStateReasonEnum(StrEnum):
+    """
+    https://www.rfc-editor.org/rfc/rfc8011.html#section-5.3.8
+    """
+
     job_completed_successfully = "job-completed-successfully"
     none = "none"
     media_empty_report = "media-empty-report"
@@ -44,12 +49,16 @@ class PrinterStateReasonEnum(StrEnum):
 
     none = "none"
     "Everything is super, nothing to report."
+    cups_waiting_for_job_completed = "cups-waiting-for-job-completed"
+    "CUPS is waiting for the job to complete."
     media_needed = "media-needed"
     "The Printer needs paper loaded."
     toner_low = "toner-low"
     "The Printer is low on toner."
     toner_empty = "toner-empty"
     "The Printer is out of toner."
+    media_empty = "media-empty"
+    "The Printer is out of paper."
     marker_supply_low = "marker-supply-low"
     "The Printer is low on ink."
     marker_supply_empty = "marker-supply-empty"
@@ -67,11 +76,12 @@ class PrinterStateReasonEnum(StrEnum):
             return cls(value), None
 
 
-class JobAttributes(BaseModel):
+class JobAttributes(BaseSchema):
     """
     References:
+    - https://www.rfc-editor.org/rfc/rfc8011.html
     - https://github.com/istopwg/pwg-books/blob/master/ippguide/printers.md
-    - https://www.iana.org/assignments/ipp-registrations/ipp-registrations.xml#ipp-registrations-4
+    - https://www.iana.org/assignments/ipp-registrations/ipp-registrations.xml
     """
 
     job_state: JobStateReasonEnum | str
@@ -114,7 +124,7 @@ class JobAttributes(BaseModel):
         return _result
 
 
-class PrinterStatus(BaseModel):
+class PrinterStatus(BaseSchema):
     printer: Printer
     paper_percentage: int | None
     toner_percentage: int | None
