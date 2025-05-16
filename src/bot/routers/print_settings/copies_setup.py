@@ -7,9 +7,10 @@ from aiogram.types import (
     Message,
 )
 
-from src.bot.keyboards import confirmation_keyboard
 from src.bot.routers.printing.printing_states import PrintWork
-from src.bot.routers.printing.printing_tools import count_of_papers_to_print, update_confirmation_keyboard
+from src.bot.routers.printing.printing_tools import (
+    format_draft_message,
+)
 
 router = Router(name="copies_setup")
 
@@ -36,15 +37,13 @@ async def apply_settings_copies(message: Message, state: FSMContext, bot: Bot):
     if message.text and message.text.isdigit():
         await state.update_data(copies=str(max(0, min(50, int(message.text)))))
         data = await state.get_data()
-        update_confirmation_keyboard(data)
+        caption, markup = format_draft_message(data)
         try:
             await bot.edit_message_caption(
-                caption="Document is ready to be printed\n"
-                f"Total papers: {count_of_papers_to_print(data["page_ranges"], data["number_up"],
-                                                                 data["sides"], data["copies"])}\n",
+                caption=caption,
                 chat_id=message.chat.id,
                 message_id=data["confirmation_message"],
-                reply_markup=confirmation_keyboard,
+                reply_markup=markup,
             )
         except aiogram.exceptions.TelegramBadRequest:
             pass

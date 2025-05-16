@@ -1,25 +1,68 @@
-import functools
 import math
+from collections.abc import Sequence
 from typing import Any, assert_never
 
 from aiogram import html
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from src.bot.keyboards import confirmation_keyboard
-from src.modules.printing.entity_models import JobAttributes, JobStateEnum
+from src.config_schema import Printer
+from src.modules.printing.entity_models import JobAttributes, JobStateEnum, PrinterStatus
 
 
-def update_confirmation_keyboard(data: dict[str, Any]) -> None:
+def format_draft_message(data: dict[str, Any]) -> tuple[str, InlineKeyboardMarkup]:
+    caption = "Document is ready to be printed\n"
+    total_papers = count_of_papers_to_print(
+        pages=data["pages"],
+        page_ranges=data["page_ranges"],
+        number_up=data["number_up"],
+        sides=data["sides"],
+        copies=data["copies"],
+    )
+    caption += f"Total papers: {total_papers}\n"
+
     def empty_inline_space_remainder(string):
         return string + " " * (100 - len(string)) + "."
 
     layout = {"1": "1x1", "4": "2x2", "9": "3x3"}.get(data["number_up"], None)
-    confirmation_keyboard.inline_keyboard[0][1].text = empty_inline_space_remainder(f"✏️ {data["printer"]}")
-    confirmation_keyboard.inline_keyboard[1][1].text = empty_inline_space_remainder(f"✏️ {data["copies"]}")
-    confirmation_keyboard.inline_keyboard[2][1].text = empty_inline_space_remainder(f"✏️ {data["page_ranges"]}")
-    confirmation_keyboard.inline_keyboard[3][1].text = empty_inline_space_remainder(
-        f"✏️ {"One side" if data["sides"] == "one-sided" else "Both sides"}"
+    sides = "One side" if data["sides"] == "one-sided" else "Both sides"
+    display_printer = empty_inline_space_remainder(f"✏️ {data['printer']}")
+    display_copies = empty_inline_space_remainder(f"✏️ {data['copies']}")
+    display_page_ranges = empty_inline_space_remainder(
+        f"✏️ {'all' if data['page_ranges'] is None else data['page_ranges']}"
     )
-    confirmation_keyboard.inline_keyboard[4][1].text = empty_inline_space_remainder(f"✏️ {layout}")
+    display_layout = empty_inline_space_remainder(f"✏️ {layout}")
+    display_sides = empty_inline_space_remainder(f"✏️ {sides}")
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Printer", callback_data="Printer"),
+                InlineKeyboardButton(text=display_printer, callback_data="Printer"),
+            ],
+            [
+                InlineKeyboardButton(text="Copies", callback_data="Copies"),
+                InlineKeyboardButton(text=display_copies, callback_data="Copies"),
+            ],
+            [
+                InlineKeyboardButton(text="Pages", callback_data="Pages"),
+                InlineKeyboardButton(text=display_page_ranges, callback_data="Pages"),
+            ],
+            [
+                InlineKeyboardButton(text="Print on", callback_data="Sides"),
+                InlineKeyboardButton(text=display_sides, callback_data="Sides"),
+            ],
+            [
+                InlineKeyboardButton(text="Layout", callback_data="Layout"),
+                InlineKeyboardButton(text=display_layout, callback_data="Layout"),
+            ],
+            [
+                InlineKeyboardButton(text="✖️ Cancel", callback_data="Cancel"),
+                InlineKeyboardButton(text="✅ Confirm", callback_data="Confirm"),
+            ],
+        ]
+    )
+
+    return caption, markup
 
 
 def format_printing_message(
@@ -32,17 +75,22 @@ def format_printing_message(
     """Format the complete message including job info and status with throbber."""
     LAYOUT = {"1": "1x1", "4": "2x2", "9": "3x3"}.get(data["number_up"], "1x1")
 
+    display_printer = f"{html.bold(html.quote(data['printer']))}"
+    display_copies = html.bold(html.quote(str(data["copies"])))
+    if data["page_ranges"] is None:
+        display_pages_ranges = html.bold("all")
+    else:
+        display_pages_ranges = html.bold(html.quote(data["page_ranges"]))
+    display_pages = html.bold(html.quote(str(data["pages"])))
+    display_sides = html.bold("One side") if data["sides"] == "one-sided" else html.bold("Two sides")
+    display_layout = html.bold(html.quote(LAYOUT))
     job_info = (
         html.italic("Job\n")
-        + html.italic(f"⦁ Printer: {html.bold(html.quote(data["printer"]))}\n")
-        + html.italic(f"⦁ Copies: {html.bold(html.quote(data["copies"]))}\n")
-        + html.italic(
-            f"⦁ Pages: {html.bold(html.quote(data["page_ranges"]))} (in document: {html.bold(html.quote(data["pages"]))})\n"
-        )
-        + html.italic(
-            f"⦁ Print on: {html.bold("One side") if data["sides"] == "one-sided" else html.bold("Two sides")}\n"
-        )
-        + html.italic(f"⦁ Layout: {html.bold(html.quote(LAYOUT))}\n")
+        + html.italic(f"⦁ Printer: {display_printer}\n")
+        + html.italic(f"⦁ Copies: {display_copies}\n")
+        + html.italic(f"⦁ Pages: {display_pages_ranges} (in document: {display_pages})\n")
+        + html.italic(f"⦁ Print on: {display_sides}\n")
+        + html.italic(f"⦁ Layout: {display_layout}\n")
     )
 
     if job_attributes:
@@ -69,7 +117,7 @@ def format_printing_message(
 
     if canceled_manually:
         caption = (
-            f"{caption}\n\n{html.bold("Cancelled on demand")}"
+            f"{caption}\n\n{html.bold('Cancelled on demand')}"
             "\nHowever, we unable to revoke partially printed jobs."
             f"\nYou should try this with printer"
         )
@@ -80,22 +128,73 @@ def format_printing_message(
     return caption
 
 
-def sub(integers: map) -> int:
+def printers_keyboard(printers: Sequence[PrinterStatus | Printer]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+
+    for status_or_printer in printers:
+        if isinstance(status_or_printer, PrinterStatus):
+            printer = status_or_printer.printer
+            show_text = printer.name
+            if status_or_printer.toner_percentage is not None and status_or_printer.paper_percentage is not None:
+                show_text += f" 🩸 {status_or_printer.toner_percentage}% 📄 {status_or_printer.paper_percentage}%"
+            elif status_or_printer.toner_percentage is not None:
+                show_text += f" 🩸 {status_or_printer.toner_percentage}%"
+            elif status_or_printer.paper_percentage is not None:
+                show_text += f" 📄 {status_or_printer.paper_percentage}%"
+        elif isinstance(status_or_printer, Printer):
+            printer = status_or_printer
+            show_text = printer.name
+        else:
+            assert_never(status_or_printer)
+        keyboard.row(InlineKeyboardButton(text=show_text, callback_data=printer.name))
+    return keyboard.as_markup()
+
+
+def sub(integers) -> int:
     try:
         return -next(integers) + next(integers) + 1
     except StopIteration:
         return 1
 
 
-def count_of_papers_to_print(page_ranges: str, number_up: str, sides: str, copies: str, sides_impact: bool = True):
-    return math.ceil(
-        count_of_pages_to_print(recalculate_page_ranges(page_ranges, number_up))
-        * (1 if sides == "one-sided" or not sides_impact else 0.5)
-    ) * int(copies)
+def count_of_papers_to_print(pages: int, page_ranges: str | None, number_up: str, sides: str, copies: str):
+    if int(number_up) <= 0:
+        raise ValueError("number_up must be positive")
+    if pages < 0:
+        raise ValueError("pages must be non-negative")
+
+    sides_factor = 1 if sides == "one-sided" else 2
+
+    cnt = count_of_pages_to_print(pages, page_ranges)
+    cnt = math.ceil(cnt / int(number_up))
+    cnt = math.ceil(cnt / sides_factor)
+    cnt *= int(copies)
+
+    return cnt
 
 
-def count_of_pages_to_print(page_ranges: str) -> int:
-    return functools.reduce(lambda result, elem: result + sub(map(int, elem.split("-"))), page_ranges.split(","), 0)
+def count_of_pages_to_print(pages: int, page_ranges: str | None) -> int:
+    if pages < 0:
+        raise ValueError("pages must be non-negative")
+
+    if page_ranges is None:
+        return pages
+    if not page_ranges:
+        return 0
+
+    total = 0
+    for range_str in page_ranges.split(","):
+        if "-" in range_str:
+            start, end = map(int, range_str.split("-"))
+            # Limit range to total pages
+            end = min(end, pages)
+            if start <= end:
+                total += end - start + 1
+        else:
+            page = int(range_str)
+            if 1 <= page <= pages:
+                total += 1
+    return total
 
 
 def recalculate_page_ranges(page_range: str, number_up: str) -> str:
@@ -105,11 +204,3 @@ def recalculate_page_ranges(page_range: str, number_up: str) -> str:
             page_range.split(","),
         )
     )
-
-
-def without_throbber(string: str | None):
-    if string is None:
-        return string
-    for elem in "⤹⤿⤻⤺":
-        string = string.replace(elem, "")
-    return string.replace("Status", "Last status")

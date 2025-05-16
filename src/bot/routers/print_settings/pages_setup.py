@@ -1,7 +1,7 @@
 from re import fullmatch
 
-import aiogram.exceptions
 from aiogram import Bot, F, Router, html
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
@@ -9,9 +9,10 @@ from aiogram.types import (
     Message,
 )
 
-from src.bot.keyboards import confirmation_keyboard
 from src.bot.routers.printing.printing_states import PrintWork
-from src.bot.routers.printing.printing_tools import count_of_papers_to_print, update_confirmation_keyboard
+from src.bot.routers.printing.printing_tools import (
+    format_draft_message,
+)
 
 router = Router(name="pages_setup")
 
@@ -31,6 +32,8 @@ def normalize_page_ranges(page_ranges: str) -> str:
         )
         while "--" in corrected_ranges:
             corrected_ranges = corrected_ranges.replace("--", "-")
+        if not corrected_ranges:
+            raise ValueError("No valid page ranges found")
         if corrected_ranges[0] == "-":
             corrected_ranges = corrected_ranges[1:]
         if corrected_ranges[1] == "-":
@@ -62,10 +65,11 @@ async def job_settings_pages(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.set_state(SetupPagesWork.set_pages)
     data = await state.get_data()
+    display_current = html.quote(data["page_ranges"]) if data["page_ranges"] else "all"
     message = await callback.message.answer(
         text="📑 Send here page ranges to be printed\n\n"
         f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
-        f"Current pages: {html.bold(html.quote(data["page_ranges"]))}"
+        f"Current pages: {html.bold(display_current)}"
     )
     await state.update_data(job_settings_pages_message_id=message.message_id)
 
@@ -77,28 +81,51 @@ def sub(integers: map) -> int:
 @router.message(SetupPagesWork.set_pages)
 async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
     await message.delete()
-    if message.text and (normalized := normalize_page_ranges(message.text)) != message.text:
-        await bot.edit_message_text(
-            message_id=(await state.get_data())["job_settings_pages_message_id"],
-            chat_id=message.chat.id,
-            text=html.bold("📑 Incorrect format\n\n") + f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
-            f"Maybe you meant: {html.bold(html.quote(normalized))}\n\n"
-            f"Current pages: {html.bold(html.quote((await state.get_data())["page_ranges"]))}",
-        )
-        return
-    await state.update_data(page_ranges=normalized)
     data = await state.get_data()
-    update_confirmation_keyboard(data)
+    if message.text == "all":
+        data["page_ranges"] = None
+    elif message.text:
+        try:
+            normalized = normalize_page_ranges(message.text)
+
+            if normalized != message.text:
+                display_current = html.quote(data["page_ranges"]) if data["page_ranges"] else "all"
+                try:
+                    await bot.edit_message_text(
+                        message_id=data["job_settings_pages_message_id"],
+                        chat_id=message.chat.id,
+                        text=html.bold("📑 Incorrect format\n\n")
+                        + f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
+                        f"Maybe you meant: {html.bold(html.quote(normalized))}\n\n"
+                        f"Current pages: {html.bold(display_current)}",
+                    )
+                except TelegramBadRequest:
+                    pass
+                return
+            data["page_ranges"] = normalized
+        except ValueError:
+            display_current = html.quote(data["page_ranges"]) if data["page_ranges"] else "all"
+            try:
+                await bot.edit_message_text(
+                    message_id=data["job_settings_pages_message_id"],
+                    chat_id=message.chat.id,
+                    text=html.bold("📑 Incorrect format\n\n") + f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
+                    f"Current pages: {html.bold(display_current)}",
+                )
+            except TelegramBadRequest:
+                pass
+            return
+    await state.update_data(data)
+
+    caption, markup = format_draft_message(data)
     try:
         await bot.edit_message_caption(
-            caption="Document is ready to be printed\n"
-            f"Total papers: {count_of_papers_to_print(data["page_ranges"], data["number_up"],
-                                                             data["sides"], data["copies"])}\n",
+            caption=caption,
             chat_id=message.chat.id,
             message_id=data["confirmation_message"],
-            reply_markup=confirmation_keyboard,
+            reply_markup=markup,
         )
-    except aiogram.exceptions.TelegramBadRequest:
+    except TelegramBadRequest:
         pass
     await bot.delete_message(chat_id=message.chat.id, message_id=data["job_settings_pages_message_id"])
     await state.set_state(PrintWork.wait_for_acceptance)

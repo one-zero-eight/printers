@@ -12,8 +12,8 @@ from aiogram.types import (
 from src.bot import shared_messages
 from src.bot.api import api_client
 from src.bot.entry_filters import InnohassleUserFilter
-from src.bot.keyboards import printers_keyboard
 from src.bot.routers.print_settings.printer_choice import update_printer_statuses
+from src.bot.routers.printing.printing_tools import printers_keyboard
 
 router = Router(name="registration")
 

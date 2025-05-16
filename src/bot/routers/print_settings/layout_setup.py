@@ -9,9 +9,8 @@ from aiogram.types import (
     Message,
 )
 
-from src.bot.keyboards import confirmation_keyboard
 from src.bot.routers.printing.printing_states import PrintWork
-from src.bot.routers.printing.printing_tools import count_of_papers_to_print, update_confirmation_keyboard
+from src.bot.routers.printing.printing_tools import format_draft_message
 
 router = Router(name="layout_setup")
 
@@ -43,15 +42,13 @@ async def job_settings_layout(callback: CallbackQuery, state: FSMContext):
 async def apply_settings_layout(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await state.update_data(number_up=callback.data)
     data = await state.get_data()
-    update_confirmation_keyboard(data)
+    caption, markup = format_draft_message(data)
     try:
         await bot.edit_message_caption(
-            caption="Document is ready to be printed\n"
-            f"Total papers: {count_of_papers_to_print(data["page_ranges"], data["number_up"],
-                                                             data["sides"], data["copies"])}\n",
+            caption=caption,
             chat_id=callback.message.chat.id,
             message_id=data["confirmation_message"],
-            reply_markup=confirmation_keyboard,
+            reply_markup=markup,
         )
     except aiogram.exceptions.TelegramBadRequest:
         pass

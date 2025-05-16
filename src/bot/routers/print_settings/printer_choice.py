@@ -11,9 +11,8 @@ from aiogram.types import (
 )
 
 from src.bot.api import api_client
-from src.bot.keyboards import confirmation_keyboard, printers_keyboard
 from src.bot.routers.printing.printing_states import PrintWork
-from src.bot.routers.printing.printing_tools import update_confirmation_keyboard
+from src.bot.routers.printing.printing_tools import format_draft_message, printers_keyboard
 from src.config import settings
 from src.config_schema import Printer
 from src.modules.printing.entity_models import PrinterStatus
@@ -55,12 +54,13 @@ async def job_settings_printer(callback: CallbackQuery, state: FSMContext, bot: 
 async def apply_settings_printer(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await state.update_data(printer=callback.data)
     data = await state.get_data()
-    update_confirmation_keyboard(data)
+    caption, markup = format_draft_message(data)
     try:
-        await bot.edit_message_reply_markup(
+        await bot.edit_message_caption(
+            caption=caption,
             chat_id=callback.message.chat.id,
             message_id=data["confirmation_message"],
-            reply_markup=confirmation_keyboard,
+            reply_markup=markup,
         )
     except aiogram.exceptions.TelegramBadRequest:
         pass
