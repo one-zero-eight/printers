@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from typing import Any, assert_never
 
 from aiogram import html
+from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -10,7 +11,9 @@ from src.config_schema import Printer
 from src.modules.printing.entity_models import JobAttributes, JobStateEnum, PrinterStatus
 
 
-def format_draft_message(data: dict[str, Any], printer: Printer | None) -> tuple[str, InlineKeyboardMarkup]:
+def format_draft_message(
+    data: dict[str, Any], status_or_printer: PrinterStatus | Printer | None
+) -> tuple[str, InlineKeyboardMarkup]:
     caption = "Document is ready to be printed\n"
     total_papers = count_of_papers_to_print(
         pages=data["pages"],
@@ -20,13 +23,19 @@ def format_draft_message(data: dict[str, Any], printer: Printer | None) -> tuple
         copies=data["copies"],
     )
     caption += f"Total papers: {total_papers}\n"
+    if isinstance(status_or_printer, PrinterStatus):
+        status = status_or_printer
+        status_or_printer = status.printer
+        caption += html.bold(f"🖨 {format_printer_status(status)}\n")
+    else:
+        caption += f"🖨 {status_or_printer.display_name}\n"
 
     def empty_inline_space_remainder(string):
         return string + " " * (100 - len(string)) + "."
 
     layout = {"1": "1x1", "4": "2x2", "9": "3x3"}.get(data["number_up"], None)
     sides = "One side" if data["sides"] == "one-sided" else "Both sides"
-    display_printer = empty_inline_space_remainder(f"✏️ {printer.display_name or "—"}")
+    display_printer = empty_inline_space_remainder(f"✏️ {status_or_printer.display_name or "—"}")
     display_copies = empty_inline_space_remainder(f"✏️ {data['copies']}")
     display_page_ranges = empty_inline_space_remainder(
         f"✏️ {'all' if data['page_ranges'] is None else data['page_ranges']}"
@@ -154,27 +163,41 @@ def format_printing_message(
     return caption
 
 
+class PrinterCallback(CallbackData, prefix="printer"):
+    cups_name: str
+
+
+def format_printer_status(status: PrinterStatus) -> str:
+    show_text = f"{status.printer.display_name}"
+    if status.offline:
+        show_text += " ☠️ Offline"
+    elif status.toner_percentage is not None and status.paper_percentage is not None:
+        show_text += f" 🩸 {status.toner_percentage}% 📄 {status.paper_percentage}%"
+    elif status.toner_percentage is not None:
+        show_text += f" 🩸 {status.toner_percentage}%"
+    elif status.paper_percentage is not None:
+        show_text += f" 📄 {status.paper_percentage}%"
+    return show_text
+
+
 def printers_keyboard(printers: Sequence[PrinterStatus | Printer]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder()
 
     for status_or_printer in printers:
         if isinstance(status_or_printer, PrinterStatus):
             printer = status_or_printer.printer
-            show_text = printer.display_name
-            if status_or_printer.offline:
-                show_text += " ☠️ Offline"
-            elif status_or_printer.toner_percentage is not None and status_or_printer.paper_percentage is not None:
-                show_text += f" 🩸 {status_or_printer.toner_percentage}% 📄 {status_or_printer.paper_percentage}%"
-            elif status_or_printer.toner_percentage is not None:
-                show_text += f" 🩸 {status_or_printer.toner_percentage}%"
-            elif status_or_printer.paper_percentage is not None:
-                show_text += f" 📄 {status_or_printer.paper_percentage}%"
+            show_text = format_printer_status(status_or_printer)
         elif isinstance(status_or_printer, Printer):
             printer = status_or_printer
             show_text = printer.display_name
         else:
             assert_never(status_or_printer)
-        keyboard.row(InlineKeyboardButton(text=show_text, callback_data=printer.cups_name))
+        keyboard.row(
+            InlineKeyboardButton(
+                text=show_text,
+                callback_data=PrinterCallback(cups_name=printer.cups_name).pack(),
+            )
+        )
     return keyboard.as_markup()
 
 

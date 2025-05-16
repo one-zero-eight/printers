@@ -12,8 +12,7 @@ from aiogram.types import (
 
 from src.bot.api import api_client
 from src.bot.routers.printing.printing_states import PrintWork
-from src.bot.routers.printing.printing_tools import format_draft_message, printers_keyboard
-from src.config import settings
+from src.bot.routers.printing.printing_tools import PrinterCallback, format_draft_message, printers_keyboard
 from src.config_schema import Printer
 from src.modules.printing.entity_models import PrinterStatus
 
@@ -47,15 +46,9 @@ async def job_settings_printer(callback: CallbackQuery, state: FSMContext, bot: 
     )
 
 
-@router.callback_query(
-    SetupPrinterWork.set_printer,
-    lambda callback: callback.data in map(lambda elem: elem.cups_name, settings.api.printers_list),
-)
-async def apply_settings_printer(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    printer_cups_name = callback.data
-    if printer_cups_name is None:
-        await callback.answer("Printer not found")
-        return
+@router.callback_query(SetupPrinterWork.set_printer, PrinterCallback.filter())
+async def apply_settings_printer(callback: CallbackQuery, callback_data: PrinterCallback, state: FSMContext, bot: Bot):
+    printer_cups_name = callback_data.cups_name
     printer = await api_client.get_printer(callback.from_user.id, printer_cups_name)
     if printer is None:  # Wrong callback.data, no such printer exist now
         await callback.answer("Printer not found")
@@ -63,8 +56,8 @@ async def apply_settings_printer(callback: CallbackQuery, state: FSMContext, bot
 
     await state.update_data(printer=printer.cups_name)
     data = await state.get_data()
-    printer = await api_client.get_printer(callback.from_user.id, data["printer"])
-    caption, markup = format_draft_message(data, printer)
+    printer_status = await api_client.get_printer_status(callback.from_user.id, data["printer"])
+    caption, markup = format_draft_message(data, printer_status)
     try:
         await bot.edit_message_caption(
             caption=caption,

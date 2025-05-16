@@ -126,8 +126,11 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
         data["page_ranges"] = None
         data["sides"] = "one-sided"
         data["number_up"] = "1"
-        printer = await api_client.get_printer(message.from_user.id, data["printer"])
-        caption, markup = format_draft_message(data, printer)
+        if "printer" not in data:
+            printer = await api_client.get_printer(message.from_user.id)
+            data["printer"] = printer.cups_name
+        printer_status = await api_client.get_printer_status(message.from_user.id, data["printer"])
+        caption, markup = format_draft_message(data, printer_status)
         document = await api_client.get_prepared_document(message.from_user.id, data["filename"])
         input_file = BufferedInputFile(document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf")
         msg = await message.answer_document(input_file, caption=caption, reply_markup=markup)

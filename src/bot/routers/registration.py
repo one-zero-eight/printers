@@ -1,7 +1,8 @@
 import asyncio
 
-from aiogram import Bot, Router, html, types
+from aiogram import Bot, F, Router, html, types
 from aiogram.filters import Command
+from aiogram.filters.logic import or_f
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
@@ -13,16 +14,23 @@ from src.bot import shared_messages
 from src.bot.api import api_client
 from src.bot.entry_filters import InnohassleUserFilter
 from src.bot.routers.print_settings.printer_choice import update_printer_statuses
-from src.bot.routers.printing.printing_tools import printers_keyboard
+from src.bot.routers.printing.printing_tools import PrinterCallback, printers_keyboard
 
 router = Router(name="registration")
 
 
 class RegistrationWork(StatesGroup):
     printer_is_not_set = State()
+    wait_for_connect = State()
 
 
-@router.message(Command("start"), InnohassleUserFilter())
+I_HAVE_CONNECTED_TELEGRAM = "I have connected telegram to InNoHassle account."
+
+
+@router.message(
+    or_f(Command("start"), F.text == I_HAVE_CONNECTED_TELEGRAM, RegistrationWork.wait_for_connect),
+    InnohassleUserFilter(),
+)
 async def command_start_handler(message: Message, state: FSMContext, bot: Bot):
     await state.clear()
     await state.set_state(RegistrationWork.printer_is_not_set)
@@ -49,17 +57,17 @@ async def command_start_handler(message: Message, state: FSMContext, bot: Bot):
     )
 
 
-@router.callback_query(RegistrationWork.printer_is_not_set)
-async def registration_work_set_printer(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(RegistrationWork.printer_is_not_set, PrinterCallback.filter())
+async def registration_work_set_printer(callback: CallbackQuery, callback_data: PrinterCallback, state: FSMContext):
     await callback.answer()
     if isinstance(callback.message, Message):
         await callback.message.delete_reply_markup()
-    await state.update_data(printer=callback.data)
+    await state.update_data(printer=callback_data.cups_name)
     await shared_messages.send_something(callback, state)
 
 
-@router.message(Command("start"), ~InnohassleUserFilter())
-async def command_start_not_registered_handler(bot: Bot, event_from_user: types.User, state: FSMContext):
+@router.message(~InnohassleUserFilter())
+async def any_not_registered_handler(bot: Bot, event_from_user: types.User, state: FSMContext):
     connect_kb = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -75,13 +83,7 @@ async def command_start_not_registered_handler(bot: Bot, event_from_user: types.
         ]
     )
     push_kb = types.ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                types.KeyboardButton(
-                    text="I have connected telegram to InNoHassle account.",
-                )
-            ]
-        ],
+        keyboard=[[types.KeyboardButton(text=I_HAVE_CONNECTED_TELEGRAM)]],
         resize_keyboard=True,
         one_time_keyboard=True,
     )

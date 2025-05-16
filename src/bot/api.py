@@ -88,8 +88,10 @@ class InNoHasslePrintAPI:
             adapter = TypeAdapter(list[Printer])
             return adapter.validate_python(response.json())
 
-    async def get_printer(self, telegram_id: int, printer_cups_name: str) -> Printer | None:
+    async def get_printer(self, telegram_id: int, printer_cups_name: str | None = None) -> Printer | None:
         printers = await self.get_printers_list(telegram_id)
+        if printer_cups_name is None:
+            return printers[0] if printers else None
         for printer in printers:
             if printer.cups_name == printer_cups_name:
                 return printer
