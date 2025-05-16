@@ -108,6 +108,10 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
             )
             return
         raise
+    except httpx.RemoteProtocolError:
+        await status_msg.delete()
+        await message.answer("An error occurred while converting the file.\nThe file may be corrupted or too large.\n")
+        raise
 
     await status_msg.edit_text("Uploading...")
     await state.update_data(pages=result.pages)
