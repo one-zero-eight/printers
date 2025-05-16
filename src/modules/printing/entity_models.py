@@ -439,7 +439,7 @@ class JobAttributes(BaseSchema):
     job_state_message: str | None
     "Human readable message for the job state"
 
-    printer_state: (
+    printer_state_reasons: (
         list[
             tuple[
                 PrinterStateReasonEnum | str,

@@ -93,6 +93,19 @@ def format_printing_message(
         + html.italic(f"⦁ Layout: {display_layout}\n")
     )
 
+    max_severity = None
+    worst_reason = None
+    SEVERITY_ORDER = {
+        "error": 0,
+        "warning": 1,
+        "report": 2,
+    }
+    for printer_state, severity in job_attributes.printer_state_reasons or []:
+        if severity is None:
+            continue
+        if max_severity is None or SEVERITY_ORDER[severity] < SEVERITY_ORDER[max_severity]:
+            max_severity = severity
+            worst_reason = printer_state
     if job_attributes:
         if job_attributes.job_state == JobStateEnum.pending:
             throbber = "⏳"
@@ -114,12 +127,24 @@ def format_printing_message(
         throbber = ""
 
     caption = f"{job_info} {throbber}"
+    notification = None
+
+    if max_severity == "error":
+        notification = f"{html.bold('⛔️ Error, requires attention')} ({worst_reason})"
+    elif max_severity == "warning":
+        notification = f"{html.bold('⚠️ Warning, still printing')} ({worst_reason})"
+    elif max_severity == "report":
+        notification = f"{html.bold('❕ Report, still printing')} ({worst_reason})"
+
+    if notification is not None:
+        if job_attributes.printer_state_message and not job_attributes.printer_state_message.startswith("Sleep"):
+            notification += f":\n{html.italic(job_attributes.printer_state_message)}"
+        caption = f"{caption}\n\n{notification}"
 
     if canceled_manually:
         caption = (
             f"{caption}\n\n{html.bold('Cancelled on demand')}"
-            "\nHowever, we unable to revoke partially printed jobs."
-            f"\nYou should try this with printer"
+            "\nPress the button on printer panel if it is still printing."
         )
 
     if timed_out:

@@ -196,7 +196,7 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
         # Update message caption with all the information
         try:
             if isinstance(callback.message, Message):
-                await callback.message.edit_caption(caption=caption)
+                await callback.message.edit_caption(caption=caption, reply_markup=cancel_keyboard)
         except aiogram.exceptions.TelegramBadRequest:
             pass
 

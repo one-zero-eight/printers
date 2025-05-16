@@ -152,7 +152,7 @@ class PrintingRepository:
             job_state=attributes["job-state"],
             job_state_reasons=JobAttributes.parse_job_state_reasons(attributes.get("job-state-reasons", "")),
             job_state_message=attributes.get("job-state-message"),
-            printer_state=JobAttributes.parse_printer_state(attributes.get("job-printer-state-reasons", [])),
+            printer_state_reasons=JobAttributes.parse_printer_state(attributes.get("job-printer-state-reasons", [])),
             printer_state_message=attributes.get("job-printer-state-message"),
         )
 
