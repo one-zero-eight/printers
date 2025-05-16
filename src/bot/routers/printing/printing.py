@@ -15,6 +15,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     Message,
 )
+from aiogram.utils.chat_action import ChatActionSender
 from aiogram_media_group import media_group_handler
 
 from src.bot import shared_messages
@@ -69,7 +70,6 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
 
         await state.set_state(PrintWork.request_file)
 
-    await bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.UPLOAD_DOCUMENT)
     file_size = (
         message.document.file_size if message.document else message.photo[-1].file_size if message.photo else None
     )
@@ -87,54 +87,54 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
         await message.answer(f"File is too large\n\nMaximum size is {html.bold('20 MB')}")
         return
 
-    status_msg = await message.answer("Downloading...")
-    file = io.BytesIO()
-    if file_telegram_identifier:
-        await message.bot.download(file=file_telegram_identifier, destination=file)
-    else:
-        file = io.BytesIO(message.text.encode("utf8"))
+    async with ChatActionSender.upload_document(bot=bot, chat_id=message.chat.id):
+        status_msg = await message.answer("Downloading...")
+        file = io.BytesIO()
+        if file_telegram_identifier:
+            await message.bot.download(file=file_telegram_identifier, destination=file)
+        else:
+            file = io.BytesIO(message.text.encode("utf8"))
 
-    await status_msg.edit_text("Converting document to PDF...")
-    try:
-        result = await api_client.prepare_document(message.from_user.id, file_telegram_name, file)
-    except httpx.HTTPStatusError as e:
+        await status_msg.edit_text("Converting document to PDF...")
+        try:
+            result = await api_client.prepare_document(message.from_user.id, file_telegram_name, file)
+        except httpx.HTTPStatusError as e:
+            await status_msg.delete()
+            if e.response.status_code == 400:
+                await message.answer(
+                    f"Unfortunately, we cannot print this file yet\n"
+                    f"because of {html.bold(html.quote(e.response.json()["detail"]))}\n\n"
+                    f"Please, send a file of a supported type:\n"
+                    f"{html.blockquote(".doc\n.docx\n.png\n.txt\n.jpg\n.md\n.bmp\n.xlsx\n.xls\n.odt\n.ods")}"
+                )
+                return
+            if e.response.status_code == 500:
+                await message.answer(
+                    "An error occurred while converting the file.\n"
+                    "The file may be corrupted or too large,"
+                    " or the server may be overloaded.\n"
+                    "Please try again later."
+                )
+                return
+            raise
+
+        await status_msg.edit_text("Uploading...")
+        await state.update_data(pages=result.pages)
+        await state.update_data(filename=result.filename)
+        data = await state.get_data()
+        data["copies"] = "1"
+        data["page_ranges"] = None
+        data["sides"] = "one-sided"
+        data["number_up"] = "1"
+        printer = await api_client.get_printer(message.from_user.id, data["printer"])
+        caption, markup = format_draft_message(data, printer)
+        document = await api_client.get_prepared_document(message.from_user.id, data["filename"])
+        input_file = BufferedInputFile(document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf")
+        msg = await message.answer_document(input_file, caption=caption, reply_markup=markup)
+        data["confirmation_message"] = msg.message_id
         await status_msg.delete()
-        if e.response.status_code == 400:
-            await message.answer(
-                f"Unfortunately, we cannot print this file yet\n"
-                f"because of {html.bold(html.quote(e.response.json()["detail"]))}\n\n"
-                f"Please, send a file of a supported type:\n"
-                f"{html.blockquote(".doc\n.docx\n.png\n.txt\n.jpg\n.md\n.bmp\n.xlsx\n.xls\n.odt\n.ods")}"
-            )
-            return
-        if e.response.status_code == 500:
-            await message.answer(
-                "An error occurred while converting the file.\n"
-                "The file may be corrupted or too large,"
-                " or the server may be overloaded.\n"
-                "Please try again later."
-            )
-            return
-        raise
-
-    await status_msg.edit_text("Uploading...")
-    await state.update_data(pages=result.pages)
-    await state.update_data(filename=result.filename)
-    data = await state.get_data()
-    data["copies"] = "1"
-    data["page_ranges"] = None
-    data["sides"] = "one-sided"
-    data["number_up"] = "1"
-    printer = await api_client.get_printer(message.from_user.id, data["printer"])
-    caption, markup = format_draft_message(data, printer)
-    document = await api_client.get_prepared_document(message.from_user.id, data["filename"])
-    input_file = BufferedInputFile(document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf")
-    await bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.UPLOAD_DOCUMENT)
-    msg = await message.answer_document(input_file, caption=caption, reply_markup=markup)
-    data["confirmation_message"] = msg.message_id
-    await status_msg.delete()
-    await state.update_data(data)
-    await state.set_state(PrintWork.wait_for_acceptance)
+        await state.update_data(data)
+        await state.set_state(PrintWork.wait_for_acceptance)
 
 
 @router.callback_query(PrintWork.wait_for_acceptance, F.data == "Cancel")
