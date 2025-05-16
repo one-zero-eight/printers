@@ -56,7 +56,7 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
         if e.response.status_code == 400:
             await message.answer(
                 f"Unfortunately, we cannot print this file yet\n"
-                f"because of {html.bold(e.response.json()["detail"])}\n\n"
+                f"because of {html.bold(html.quote(e.response.json()["detail"]))}\n\n"
                 f"Please, send a file of a supported type:\n"
                 f"{html.blockquote(".doc\n.docx\n.png\n.txt\n.jpg\n.md\n.bmp\n.xlsx\n.xls\n.odt\n.ods")}"
             )

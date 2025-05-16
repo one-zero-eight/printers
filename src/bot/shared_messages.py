@@ -20,6 +20,6 @@ async def send_something(callback: CallbackQuery, state: FSMContext, job_attribu
     if note:
         text = f"{note}\n\n"
     text += html.bold("🖨 We are ready to print!\n") + "Just send something to be printed\n\n"
-    text += f"Current printer is {html.bold((await state.get_data())["printer"])}"
+    text += f"Current printer is {html.bold(html.quote((await state.get_data())["printer"]))}"
 
     await callback.message.answer(text)

@@ -34,13 +34,15 @@ def format_printing_message(
 
     job_info = (
         html.italic("Job\n")
-        + html.italic(f"⦁ Printer: {html.bold(data["printer"])}\n")
-        + html.italic(f"⦁ Copies: {html.bold(data["copies"])}\n")
-        + html.italic(f"⦁ Pages: {html.bold(data["page_ranges"])} (in document: {html.bold(data["pages"])})\n")
+        + html.italic(f"⦁ Printer: {html.bold(html.quote(data["printer"]))}\n")
+        + html.italic(f"⦁ Copies: {html.bold(html.quote(data["copies"]))}\n")
+        + html.italic(
+            f"⦁ Pages: {html.bold(html.quote(data["page_ranges"]))} (in document: {html.bold(html.quote(data["pages"]))})\n"
+        )
         + html.italic(
             f"⦁ Print on: {html.bold("One side") if data["sides"] == "one-sided" else html.bold("Two sides")}\n"
         )
-        + html.italic(f"⦁ Layout: {html.bold(LAYOUT)}\n")
+        + html.italic(f"⦁ Layout: {html.bold(html.quote(LAYOUT))}\n")
     )
 
     if job_attributes:

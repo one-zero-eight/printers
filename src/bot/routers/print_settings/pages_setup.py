@@ -64,7 +64,7 @@ async def job_settings_pages(callback: CallbackQuery, state: FSMContext):
     message = await callback.message.answer(
         text="📑 Send here page ranges to be printed\n\n"
         f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
-        f"Current pages: {html.bold((await state.get_data())["page_ranges"])}"
+        f"Current pages: {html.bold(html.quote(await state.get_data())["page_ranges"])}"
     )
     await state.update_data(job_settings_pages_message_id=message.message_id)
 
@@ -81,8 +81,8 @@ async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
             message_id=(await state.get_data())["job_settings_pages_message_id"],
             chat_id=message.chat.id,
             text=html.bold("📑 Incorrect format\n\n") + f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
-            f"Maybe you meant: {html.bold(normalized)}\n\n"
-            f"Current pages: {html.bold((await state.get_data())["page_ranges"])}",
+            f"Maybe you meant: {html.bold(html.quote(normalized))}\n\n"
+            f"Current pages: {html.bold(html.quote((await state.get_data())["page_ranges"]))}",
         )
         return
     await state.update_data(page_ranges=normalized)

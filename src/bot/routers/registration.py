@@ -31,7 +31,7 @@ async def command_start_handler(message: Message, state: FSMContext, bot: Bot):
     printers = await api_client.get_printers_list(message.from_user.id)
 
     msg = await message.answer(
-        f"👋 Hello, {html.bold(message.from_user.first_name)}\n"
+        f"👋 Hello, {html.bold(html.quote(message.from_user.first_name))}\n"
         f"This is a bot for printing documents with\n{html.bold("Innopolis University printers!")}\n\n"
         "❓ About: /help\n\n"
         f"To proceed, please, {html.bold("choose a printer")}",

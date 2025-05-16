@@ -24,7 +24,7 @@ async def job_settings_copies(callback: CallbackQuery, state: FSMContext):
     await state.set_state(SetupCopiesWork.set_copies)
     message = await callback.message.answer(
         f"🔢 Send a {html.bold("new amount of copies")}\n\n"
-        f"Current value: {html.bold((await state.get_data())["copies"])}\n\n"
+        f"Current value: {html.bold(html.quote((await state.get_data())["copies"]))}\n\n"
         f"Maximum value is {html.bold("50")} (we'll clamp)"
     )
     await state.update_data(job_settings_copies_message_id=message.message_id)
@@ -57,7 +57,7 @@ async def apply_settings_copies(message: Message, state: FSMContext, bot: Bot):
                 chat_id=message.chat.id,
                 message_id=data["job_settings_copies_message_id"],
                 text=f"🔢 Incorrect format, we expect a {html.bold("digit")}\n\n"
-                f"Current value: {html.bold((await state.get_data())["copies"])}\n\n"
+                f"Current value: {html.bold(html.quote((await state.get_data())["copies"]))}\n\n"
                 f"Maximum value is {html.bold("50")} (we'll clamp)",
             )
         except aiogram.exceptions.TelegramBadRequest:
