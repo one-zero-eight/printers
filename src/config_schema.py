@@ -15,12 +15,12 @@ class SettingBaseModel(BaseModel):
 
 
 class Printer(SettingBaseModel):
-    name: str
+    display_name: str
     "Display name of the printer, it will be shown to the user"
     cups_name: str
     "Name of the printer in CUPS"
-    ip: str = Field(examples=["192.168.1.1", "host.docker.internal:62102", "127.0.0.1:62102"])
-    "IP address of the printer, also may be with port like 'host.docker.internal:62102' if needed (proxies to cups port)"
+    ipp: str = Field(examples=["192.168.1.1", "host.docker.internal:62102", "127.0.0.1:62102"])
+    "IP address of the printer for accessing IPP. Specify a port if it differs from 631."
 
 
 class Accounts(SettingBaseModel):

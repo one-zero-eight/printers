@@ -63,12 +63,12 @@ async def get_printers_status(_innohassle_user_id: USER_AUTH) -> list[PrinterSta
 
 
 @router.get("/get_printer_status")
-async def get_printer_status(printer_name: str, _innohassle_user_id: USER_AUTH) -> PrinterStatus:
-    printer = printing_repository.get_printer(printer_name)
+async def get_printer_status(printer_cups_name: str, _innohassle_user_id: USER_AUTH) -> PrinterStatus:
+    printer = printing_repository.get_printer(printer_cups_name)
     if not printer:
         raise HTTPException(400, "No such printer")
     status = await printing_repository.get_printer_status(printer)
-    logger.info(f"Printer {printer_name} status: {status}")
+    logger.info(f"Printer {printer.cups_name} status: {status}")
     return status
 
 
@@ -106,7 +106,7 @@ async def prepare_printing(file: UploadFile, innohassle_user_id: USER_AUTH) -> P
 @router.post("/print", responses={404: {"description": "No such file"}, 400: {"description": "No such printer"}})
 async def actual_print(
     filename: str,
-    printer_name: str,
+    printer_cups_name: str,
     innohassle_user_id: USER_AUTH,
     printing_options: PrintingOptions = Body(PrintingOptions(), embed=True),
 ) -> int:
@@ -115,7 +115,7 @@ async def actual_print(
     """
 
     if (innohassle_user_id, filename) in tempfiles:
-        printer = printing_repository.get_printer(printer_name)
+        printer = printing_repository.get_printer(printer_cups_name)
         if not printer:
             raise HTTPException(400, "No such printer")
         job_id = printing_repository.print_file(printer, filename, "job", printing_options)
@@ -145,10 +145,10 @@ async def cancel_preparation(filename: str, innohassle_user_id: USER_AUTH) -> No
 @router.post("/debug/getPrinterAttributes")
 async def get_printer_attributes(
     _innohassle_user_id: USER_AUTH,
-    name: str,
+    printer_cups_name: str,
 ) -> dict[str, Any]:
     cups_server = printing_repository.server
-    return cups_server.getPrinterAttributes(name)
+    return cups_server.getPrinterAttributes(printer_cups_name)
 
 
 @router.post("/debug/createJob")

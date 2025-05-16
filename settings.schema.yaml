@@ -51,7 +51,12 @@ $defs:
         - type: string
         - type: 'null'
         default: null
-        description: CUPS hostname
+        description: CUPS hostname, if None then /run/cups-socket/cups.sock will be
+          used
+        examples:
+        - localhost
+        - cups
+        - 127.0.0.1
         title: Cups Server
       cups_port:
         default: 631
@@ -63,7 +68,7 @@ $defs:
         - type: string
         - type: 'null'
         default: null
-        description: CUPS username
+        description: CUPS username, if None then current user will be used
         title: Cups User
       cups_password:
         anyOf:
@@ -75,6 +80,7 @@ $defs:
         description: CUPS password
         title: Cups Password
       printers_list:
+        description: List of printers
         items:
           $ref: '#/$defs/Printer'
         title: Printers List
@@ -119,37 +125,43 @@ $defs:
   Printer:
     additionalProperties: false
     properties:
-      name:
-        title: Name
+      display_name:
+        description: Display name of the printer, it will be shown to the user
+        title: Display Name
         type: string
       cups_name:
+        description: Name of the printer in CUPS
         title: Cups Name
         type: string
-      ip:
-        title: Ip
+      ipp:
+        description: IP address of the printer for accessing IPP. Specify a port if
+          it differs from 631.
+        examples:
+        - 192.168.1.1
+        - host.docker.internal:62102
+        - 127.0.0.1:62102
+        title: Ipp
         type: string
     required:
-    - name
+    - display_name
     - cups_name
-    - ip
+    - ipp
     title: Printer
     type: object
 additionalProperties: false
 description: Settings for the application.
 properties:
   $schema:
+    anyOf:
+    - type: string
+    - type: 'null'
     default: null
     title: $Schema
-    type: string
   api:
-    anyOf:
-    - $ref: '#/$defs/ApiSettings'
-    - type: 'null'
+    $ref: '#/$defs/ApiSettings'
     default: null
   bot:
-    anyOf:
-    - $ref: '#/$defs/BotSettings'
-    - type: 'null'
+    $ref: '#/$defs/BotSettings'
     default: null
 title: Settings
 type: object

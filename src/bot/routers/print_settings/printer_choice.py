@@ -49,10 +49,20 @@ async def job_settings_printer(callback: CallbackQuery, state: FSMContext, bot: 
 
 @router.callback_query(
     SetupPrinterWork.set_printer,
-    lambda callback: callback.data in map(lambda elem: elem.name, settings.api.printers_list),
+    lambda callback: callback.data in map(lambda elem: elem.cups_name, settings.api.printers_list),
 )
 async def apply_settings_printer(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    await state.update_data(printer=callback.data)
+    printers = await api_client.get_printers_list(callback.from_user.id)
+    printer = None
+    for p in printers:
+        if p.cups_name == callback.data:
+            printer = p
+            break
+    if printer is None:  # Wrong callback.data, no such printer exist now
+        await callback.answer("Printer not found")
+        return
+
+    await state.update_data(printer=printer.cups_name)
     data = await state.get_data()
     caption, markup = format_draft_message(data)
     try:
@@ -79,7 +89,7 @@ async def update_printer_statuses(
     checkable_state: State,
 ):
     tasks = [
-        api_client.get_printer_status(from_user_id, printer.name)
+        api_client.get_printer_status(from_user_id, printer.cups_name)
         for printer in printers
         if isinstance(printer, Printer)
     ]
@@ -89,7 +99,7 @@ async def update_printer_statuses(
         result = await t
         if isinstance(result, PrinterStatus):
             for i, p in enumerate(printers):
-                if isinstance(p, Printer) and p.name == result.printer.name:
+                if isinstance(p, Printer) and p.cups_name == result.printer.cups_name:
                     printers[i] = result  # type: ignore
 
         new_reply_markup = printers_keyboard(printers)

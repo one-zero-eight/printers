@@ -38,17 +38,17 @@ class PrintingRepository:
         # Cache printer paper status for 5 minutes
         self._printer_paper_status_cache = TTLCache(maxsize=100, ttl=5 * 60)
 
-    def get_printer(self, name: str) -> Printer | None:
+    def get_printer(self, cups_name: str) -> Printer | None:
         for elem in settings.api.printers_list:
-            if elem.name == name:
+            if elem.cups_name == cups_name:
                 return elem
         return None
 
     async def get_printer_status(self, printer: Printer) -> PrinterStatus:
         _start = time.perf_counter()
         attributes = self.server.getPrinterAttributes(printer.cups_name, requested_attributes=["marker-levels"])
-        logger.info(f"Printer {printer.name} getPrinterAttributes time: {time.perf_counter() - _start:.4f}s")
-        logger.info(f"Printer {printer.name} attributes: {attributes}")
+        logger.info(f"Printer {printer.cups_name} getPrinterAttributes time: {time.perf_counter() - _start:.4f}s")
+        logger.info(f"Printer {printer.cups_name} attributes: {attributes}")
 
         marker_levels = attributes.get("marker-levels")
         toner_percentage = None
@@ -70,19 +70,19 @@ class PrintingRepository:
 
     async def _fetch_paper_status(self, printer: Printer, use_cache: bool = True) -> int | None:
         # Check cache first
-        cache_key = printer.ip
+        cache_key = printer.ipp
         cached = self._printer_paper_status_cache.get(cache_key)
         if cached is not None and use_cache:
-            logger.info(f"Using cached paper percentage for printer {printer.name}")
+            logger.info(f"Using cached paper percentage for printer {printer.cups_name}")
             return cached
 
         async with httpx.AsyncClient() as client:
             _start = time.perf_counter()
-            if ":" in printer.ip:
-                response = await client.get(f"http://{printer.ip}")
+            if ":" in printer.ipp:
+                response = await client.get(f"http://{printer.ipp}")
             else:
-                response = await client.get(f"http://{printer.ip}:631")
-            logger.info(f"Printer {printer.name} fetch time: {time.perf_counter() - _start:.4f}s")
+                response = await client.get(f"http://{printer.ipp}:631")
+            logger.info(f"Printer {printer.cups_name} fetch time: {time.perf_counter() - _start:.4f}s")
             if response.status_code == httpx.codes.OK:
                 percentage = self._parse_paper_percentage(response.text)
                 if percentage is not None:
@@ -90,7 +90,7 @@ class PrintingRepository:
                     self._printer_paper_status_cache[cache_key] = percentage
                     return percentage
             else:
-                logger.warning(f"Printer {printer.name} response: {response}")
+                logger.warning(f"Printer {printer.cups_name} response: {response}")
         return None
 
     def _parse_paper_percentage(self, html: str) -> int | None:

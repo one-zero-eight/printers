@@ -32,9 +32,9 @@ class InNoHasslePrintAPI:
             return PreparePrintingResponse.model_validate(response.json())
 
     async def begin_job(
-        self, telegram_id: int, filename: str, printer_name: str, printing_options: PrintingOptions
+        self, telegram_id: int, filename: str, printer_cups_name: str, printing_options: PrintingOptions
     ) -> int:
-        params = {"filename": filename, "printer_name": printer_name}
+        params = {"filename": filename, "printer_cups_name": printer_cups_name}
         data = {"printing_options": printing_options.model_dump(by_alias=True)}
         async with self._create_client(telegram_id) as client:
             response = await client.post(
@@ -95,8 +95,8 @@ class InNoHasslePrintAPI:
             adapter = TypeAdapter(list[PrinterStatus])
             return adapter.validate_python(response.json())
 
-    async def get_printer_status(self, telegram_id: int, printer_name: str) -> PrinterStatus:
-        params = {"printer_name": printer_name}
+    async def get_printer_status(self, telegram_id: int, printer_cups_name: str) -> PrinterStatus:
+        params = {"printer_cups_name": printer_cups_name}
         async with self._create_client(telegram_id) as client:
             response = await client.get("/print/get_printer_status", params=params)
             response.raise_for_status()

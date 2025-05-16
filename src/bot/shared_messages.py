@@ -2,6 +2,7 @@ from aiogram import html
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
+from src.bot.api import api_client
 from src.bot.routers.printing.printing_states import PrintWork
 from src.modules.printing.entity_models import JobAttributes, JobStateEnum
 
@@ -19,7 +20,16 @@ async def send_something(callback: CallbackQuery, state: FSMContext, job_attribu
     text = ""
     if note:
         text = f"{note}\n\n"
-    text += html.bold("🖨 We are ready to print!\n") + "Just send something to be printed\n\n"
-    text += f"Current printer is {html.bold(html.quote((await state.get_data())["printer"]))}"
+    text += html.bold("🖨 We are ready to print!\n") + "Just send something to be printed"
+
+    printer_cups_name = (await state.get_data())["printer"]
+    printers = await api_client.get_printers_list(callback.from_user.id)
+    printer = None
+    for p in printers:
+        if p.cups_name == printer_cups_name:
+            printer = p
+            break
+    if printer is not None:
+        text += f"\n\nCurrent printer is {html.bold(html.quote(printer.display_name))}"
 
     await callback.message.answer(text)
