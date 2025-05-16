@@ -87,15 +87,18 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
         await message.answer(f"File is too large\n\nMaximum size is {html.bold('20 MB')}")
         return
 
+    status_msg = await message.answer("Downloading...")
     file = io.BytesIO()
     if file_telegram_identifier:
         await message.bot.download(file=file_telegram_identifier, destination=file)
     else:
         file = io.BytesIO(message.text.encode("utf8"))
 
+    await status_msg.edit_text("Converting document to PDF...")
     try:
         result = await api_client.prepare_document(message.from_user.id, file_telegram_name, file)
     except httpx.HTTPStatusError as e:
+        await status_msg.delete()
         if e.response.status_code == 400:
             await message.answer(
                 f"Unfortunately, we cannot print this file yet\n"
@@ -106,6 +109,7 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
             return
         raise
 
+    await status_msg.edit_text("Uploading...")
     await state.update_data(pages=result.pages)
     await state.update_data(filename=result.filename)
     data = await state.get_data()
@@ -117,8 +121,10 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
     caption, markup = format_draft_message(data, printer)
     document = await api_client.get_prepared_document(message.from_user.id, data["filename"])
     input_file = BufferedInputFile(document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf")
+    await bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.UPLOAD_DOCUMENT)
     msg = await message.answer_document(input_file, caption=caption, reply_markup=markup)
     data["confirmation_message"] = msg.message_id
+    await status_msg.delete()
     await state.update_data(data)
     await state.set_state(PrintWork.wait_for_acceptance)
 
