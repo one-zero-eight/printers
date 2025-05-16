@@ -70,15 +70,23 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
         await state.set_state(PrintWork.request_file)
 
     await bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.UPLOAD_DOCUMENT)
+    file_size = (
+        message.document.file_size if message.document else message.photo[-1].file_size if message.photo else None
+    )
     file_telegram_identifier = (
         message.document.file_id if message.document else message.photo[-1].file_id if message.photo else None
     )
     file_telegram_name = (
         message.document.file_name if message.document else "Photo.png" if message.photo else "Text.txt"
     )
+
     if not file_telegram_name:
         await message.answer("File name is not supported")
         return
+    if file_size is None or file_size > 20 * 1024 * 1024:  # 20 MB
+        await message.answer(f"File is too large\n\nMaximum size is {html.bold('20 MB')}")
+        return
+
     file = io.BytesIO()
     if file_telegram_identifier:
         await message.bot.download(file=file_telegram_identifier, destination=file)
