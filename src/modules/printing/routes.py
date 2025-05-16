@@ -95,6 +95,7 @@ async def prepare_printing(file: UploadFile, innohassle_user_id: USER_AUTH) -> P
         ):
             in_f.write(await file.read())
             in_f.flush()
+            # Run conversion in a background thread
             await asyncio.to_thread(converting_repository.any2pdf, in_f.name, out_f.name)
             in_f.close()
             tempfiles[(innohassle_user_id, out_f.name)] = out_f
