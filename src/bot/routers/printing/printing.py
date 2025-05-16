@@ -107,15 +107,14 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
                 f"{html.blockquote(".doc\n.docx\n.png\n.txt\n.jpg\n.md\n.bmp\n.xlsx\n.xls\n.odt\n.ods")}"
             )
             return
-        raise
-    except httpx.RemoteProtocolError:
-        await status_msg.delete()
-        await message.answer(
-            "An error occurred while converting the file.\n"
-            "The file may be corrupted or too large,"
-            " or the server may be overloaded.\n"
-            "Please try again later."
-        )
+        if e.response.status_code == 500:
+            await message.answer(
+                "An error occurred while converting the file.\n"
+                "The file may be corrupted or too large,"
+                " or the server may be overloaded.\n"
+                "Please try again later."
+            )
+            return
         raise
 
     await status_msg.edit_text("Uploading...")
