@@ -43,6 +43,7 @@ dictConfig = {
         "src": {"handlers": ["src"], "level": "INFO", "propagate": False},
         "uvicorn.access": {"handlers": ["default"], "level": "INFO", "propagate": False},
         "uvicorn.error": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "httpx": {"handlers": ["default"], "level": "WARNING", "propagate": False},
     },
 }
 

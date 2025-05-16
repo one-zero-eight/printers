@@ -37,6 +37,8 @@ class PrintingRepository:
         self.server = cups.Connection()
         # Cache printer paper status for 5 minutes
         self._printer_paper_status_cache = TTLCache(maxsize=100, ttl=5 * 60)
+        # Cache printer toner status for 5 minutes
+        self._printer_toner_status_cache = TTLCache(maxsize=100, ttl=5 * 60)
 
     def get_printer(self, cups_name: str) -> Printer | None:
         for elem in settings.api.printers_list:
@@ -44,22 +46,9 @@ class PrintingRepository:
                 return elem
         return None
 
-    async def get_printer_status(self, printer: Printer) -> PrinterStatus:
-        try:
-            t1 = time.perf_counter()
-            attributes = self.server.getPrinterAttributes(printer.cups_name, requested_attributes=["marker-levels"])
-            t2 = time.perf_counter()
-            logger.info(f"Printer {printer.cups_name} get attributes time: {(t2 - t1) * 1000:.0f}ms")
-        except cups.IPPError as e:
-            logger.warning(e)
-            attributes = {}
-
-        marker_levels = attributes.get("marker-levels")
-        toner_percentage = None
+    async def get_printer_status(self, printer: Printer, use_cache: bool = True) -> PrinterStatus:
+        toner_percentage = self._fetch_toner_status(printer, use_cache)
         paper_percentage = None
-
-        if marker_levels:
-            toner_percentage = marker_levels[0]
 
         async with httpx.AsyncClient() as client:
             offline = await self._is_printer_offline(printer, client)
@@ -68,7 +57,7 @@ class PrintingRepository:
                 paper_percentage = self._printer_paper_status_cache.get(printer.ipp)
             else:  # otherwise fetch from printer, or from cache if ttl is not expired
                 try:
-                    paper_percentage = await self._fetch_paper_status(printer, client)
+                    paper_percentage = await self._fetch_paper_status(printer, client, use_cache)
                 except Exception as e:
                     logger.warning(e)
 
@@ -78,6 +67,29 @@ class PrintingRepository:
             toner_percentage=toner_percentage,
             paper_percentage=paper_percentage,
         )
+
+    def _fetch_toner_status(self, printer: Printer, use_cache: bool = True) -> int | None:
+        # Check cache first
+        cached_toner = self._printer_toner_status_cache.get(printer.cups_name)
+        if cached_toner is not None and use_cache:
+            logger.info(f"Using cached toner percentage for printer {printer.cups_name}")
+            return cached_toner
+
+        try:
+            t1 = time.perf_counter()
+            attributes = self.server.getPrinterAttributes(printer.cups_name, requested_attributes=["marker-levels"])
+            t2 = time.perf_counter()
+            logger.info(f"Printer {printer.cups_name} get attributes time: {(t2 - t1) * 1000:.0f}ms")
+
+            marker_levels = attributes.get("marker-levels")
+            if marker_levels:
+                toner_percentage = marker_levels[0]
+                # Cache the toner percentage
+                self._printer_toner_status_cache[printer.cups_name] = toner_percentage
+                return toner_percentage
+        except cups.IPPError as e:
+            logger.warning(e)
+        return None
 
     async def _is_printer_offline(self, printer: Printer, client: httpx.AsyncClient) -> bool:
         try:
