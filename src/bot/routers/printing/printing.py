@@ -60,8 +60,9 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
         job_attributes = await api_client.check_job(message.from_user.id, job_id)
         await api_client.cancel_job(message.from_user.id, job_id)
 
+        printer = await api_client.get_printer(message.from_user.id, data["printer"])
         try:
-            caption = format_printing_message(data, job_attributes, canceled_manually=True)
+            caption = format_printing_message(data, printer, job_attributes, canceled_manually=True)
             await bot.edit_message_caption(caption=caption, chat_id=message.chat.id, message_id=confirmation_message)
         except (aiogram.exceptions.TelegramBadRequest, KeyError):
             pass
@@ -104,7 +105,8 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
     data["page_ranges"] = None
     data["sides"] = "one-sided"
     data["number_up"] = "1"
-    caption, markup = format_draft_message(data)
+    printer = await api_client.get_printer(message.from_user.id, data["printer"])
+    caption, markup = format_draft_message(data, printer)
     document = await api_client.get_prepared_document(message.from_user.id, data["filename"])
     input_file = BufferedInputFile(document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf")
     msg = await message.answer_document(input_file, caption=caption, reply_markup=markup)
@@ -136,6 +138,12 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
 
     # Get data and set up printing options
     data = await state.get_data()
+    printer = await api_client.get_printer(callback.from_user.id, data["printer"])
+
+    if printer is None:
+        await callback.answer("Printer not found")
+        return
+
     printing_options = PrintingOptions()
     printing_options.copies = data["copies"]
     if data["page_ranges"] is None:
@@ -149,7 +157,7 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
     job_id = await api_client.begin_job(
         callback.from_user.id,
         data["filename"],
-        data["printer"],
+        printer.cups_name,
         printing_options,
     )
     await state.update_data(job_id=job_id)
@@ -191,7 +199,7 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
             continue
 
         # Format message
-        caption = format_printing_message(data, job_attributes, iteration)
+        caption = format_printing_message(data, printer, job_attributes, iteration)
 
         # Update message caption with all the information
         try:
@@ -218,7 +226,7 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
         job_attributes = await api_client.check_job(callback.from_user.id, job_id)
         try:
             if isinstance(callback.message, Message):
-                caption = format_printing_message(data, job_attributes, timed_out=True)
+                caption = format_printing_message(data, printer, job_attributes, timed_out=True)
                 await callback.message.edit_caption(caption=caption)
         except aiogram.exceptions.TelegramBadRequest:
             pass
@@ -234,8 +242,9 @@ async def print_work_cancel(callback: CallbackQuery, state: FSMContext):
         await api_client.cancel_job(callback.from_user.id, job_id)
         await shared_messages.send_something(callback, state, job_attributes)
 
+        printer = await api_client.get_printer(callback.from_user.id, data["printer"])
         try:
-            caption = format_printing_message(data, job_attributes, canceled_manually=True)
+            caption = format_printing_message(data, printer, job_attributes, canceled_manually=True)
             if isinstance(callback.message, Message):
                 await callback.message.edit_caption(caption=caption)
         except (aiogram.exceptions.TelegramBadRequest, KeyError):

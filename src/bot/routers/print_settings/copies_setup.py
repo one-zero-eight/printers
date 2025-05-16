@@ -7,10 +7,9 @@ from aiogram.types import (
     Message,
 )
 
+from src.bot.api import api_client
 from src.bot.routers.printing.printing_states import PrintWork
-from src.bot.routers.printing.printing_tools import (
-    format_draft_message,
-)
+from src.bot.routers.printing.printing_tools import format_draft_message
 
 router = Router(name="copies_setup")
 
@@ -37,7 +36,8 @@ async def apply_settings_copies(message: Message, state: FSMContext, bot: Bot):
     if message.text and message.text.isdigit():
         await state.update_data(copies=str(max(0, min(50, int(message.text)))))
         data = await state.get_data()
-        caption, markup = format_draft_message(data)
+        printer = await api_client.get_printer(message.from_user.id, data["printer"])
+        caption, markup = format_draft_message(data, printer)
         try:
             await bot.edit_message_caption(
                 caption=caption,

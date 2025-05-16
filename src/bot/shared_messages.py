@@ -23,12 +23,7 @@ async def send_something(callback: CallbackQuery, state: FSMContext, job_attribu
     text += html.bold("🖨 We are ready to print!\n") + "Just send something to be printed"
 
     printer_cups_name = (await state.get_data())["printer"]
-    printers = await api_client.get_printers_list(callback.from_user.id)
-    printer = None
-    for p in printers:
-        if p.cups_name == printer_cups_name:
-            printer = p
-            break
+    printer = await api_client.get_printer(callback.from_user.id, printer_cups_name)
     if printer is not None:
         text += f"\n\nCurrent printer is {html.bold(html.quote(printer.display_name))}"
 

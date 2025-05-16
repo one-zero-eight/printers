@@ -9,6 +9,7 @@ from aiogram.types import (
     Message,
 )
 
+from src.bot.api import api_client
 from src.bot.routers.printing.printing_states import PrintWork
 from src.bot.routers.printing.printing_tools import (
     format_draft_message,
@@ -117,7 +118,8 @@ async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
             return
     await state.update_data(data)
 
-    caption, markup = format_draft_message(data)
+    printer = await api_client.get_printer(message.from_user.id, data["printer"])
+    caption, markup = format_draft_message(data, printer)
     try:
         await bot.edit_message_caption(
             caption=caption,

@@ -10,7 +10,7 @@ from src.config_schema import Printer
 from src.modules.printing.entity_models import JobAttributes, JobStateEnum, PrinterStatus
 
 
-def format_draft_message(data: dict[str, Any]) -> tuple[str, InlineKeyboardMarkup]:
+def format_draft_message(data: dict[str, Any], printer: Printer | None) -> tuple[str, InlineKeyboardMarkup]:
     caption = "Document is ready to be printed\n"
     total_papers = count_of_papers_to_print(
         pages=data["pages"],
@@ -26,7 +26,7 @@ def format_draft_message(data: dict[str, Any]) -> tuple[str, InlineKeyboardMarku
 
     layout = {"1": "1x1", "4": "2x2", "9": "3x3"}.get(data["number_up"], None)
     sides = "One side" if data["sides"] == "one-sided" else "Both sides"
-    display_printer = empty_inline_space_remainder(f"✏️ {data['printer']}")
+    display_printer = empty_inline_space_remainder(f"✏️ {printer.display_name or "—"}")
     display_copies = empty_inline_space_remainder(f"✏️ {data['copies']}")
     display_page_ranges = empty_inline_space_remainder(
         f"✏️ {'all' if data['page_ranges'] is None else data['page_ranges']}"
@@ -67,6 +67,7 @@ def format_draft_message(data: dict[str, Any]) -> tuple[str, InlineKeyboardMarku
 
 def format_printing_message(
     data: dict[str, Any],
+    printer: Printer | None,
     job_attributes: JobAttributes | None = None,
     iteration: int = 0,
     canceled_manually: bool = False,
@@ -75,7 +76,7 @@ def format_printing_message(
     """Format the complete message including job info and status with throbber."""
     LAYOUT = {"1": "1x1", "4": "2x2", "9": "3x3"}.get(data["number_up"], "1x1")
 
-    display_printer = f"{html.bold(html.quote(data['printer']))}"
+    display_printer = f"{html.bold(html.quote(printer.display_name or "—"))}"
     display_copies = html.bold(html.quote(str(data["copies"])))
     if data["page_ranges"] is None:
         display_pages_ranges = html.bold("all")

@@ -52,19 +52,16 @@ async def job_settings_printer(callback: CallbackQuery, state: FSMContext, bot: 
     lambda callback: callback.data in map(lambda elem: elem.cups_name, settings.api.printers_list),
 )
 async def apply_settings_printer(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    printers = await api_client.get_printers_list(callback.from_user.id)
-    printer = None
-    for p in printers:
-        if p.cups_name == callback.data:
-            printer = p
-            break
+    printer_cups_name = callback.data
+    printer = await api_client.get_printer(callback.from_user.id, printer_cups_name)
     if printer is None:  # Wrong callback.data, no such printer exist now
         await callback.answer("Printer not found")
         return
 
     await state.update_data(printer=printer.cups_name)
     data = await state.get_data()
-    caption, markup = format_draft_message(data)
+    printer = await api_client.get_printer(callback.from_user.id, data["printer"])
+    caption, markup = format_draft_message(data, printer)
     try:
         await bot.edit_message_caption(
             caption=caption,

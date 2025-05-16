@@ -9,6 +9,7 @@ from aiogram.types import (
     Message,
 )
 
+from src.bot.api import api_client
 from src.bot.routers.printing.printing_states import PrintWork
 from src.bot.routers.printing.printing_tools import format_draft_message
 
@@ -42,7 +43,8 @@ async def job_settings_layout(callback: CallbackQuery, state: FSMContext):
 async def apply_settings_layout(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await state.update_data(number_up=callback.data)
     data = await state.get_data()
-    caption, markup = format_draft_message(data)
+    printer = await api_client.get_printer(callback.from_user.id, data["printer"])
+    caption, markup = format_draft_message(data, printer)
     try:
         await bot.edit_message_caption(
             caption=caption,
