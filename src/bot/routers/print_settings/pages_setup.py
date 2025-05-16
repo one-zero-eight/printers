@@ -1,10 +1,12 @@
 from re import fullmatch
+from typing import Literal
 
 from aiogram import Bot, F, Router, html
 from aiogram.exceptions import TelegramBadRequest
+from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.bot.api import api_client
 from src.bot.routers.printing.printing_states import PrintWork
@@ -15,6 +17,10 @@ router = Router(name="pages_setup")
 
 class SetupPagesWork(StatesGroup):
     set_pages = State()
+
+
+class PagesActionCallback(CallbackData, prefix="pages_action"):
+    action: Literal["cancel", "reset"]
 
 
 def normalize_page_ranges(page_ranges: str) -> str:
@@ -62,16 +68,54 @@ async def job_settings_pages(callback: CallbackQuery, state: FSMContext):
     await state.set_state(SetupPagesWork.set_pages)
     data = await state.get_data()
     display_current = html.quote(data["page_ranges"]) if data["page_ranges"] else "all"
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✖️ Cancel", callback_data=PagesActionCallback(action="cancel").pack()),
+                InlineKeyboardButton(text="🔄 Reset to all", callback_data=PagesActionCallback(action="reset").pack()),
+            ]
+        ]
+    )
+
     message = await callback.message.answer(
         text="📑 Send here page ranges to be printed\n\n"
         f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
-        f"Current pages: {html.bold(display_current)}"
+        f"Current pages: {html.bold(display_current)}",
+        reply_markup=keyboard,
     )
     await state.update_data(job_settings_pages_message_id=message.message_id)
 
 
 def sub(integers: map) -> int:
     return next(integers) - next(integers)
+
+
+@router.callback_query(SetupPagesWork.set_pages, PagesActionCallback.filter())
+async def handle_pages_action(callback: CallbackQuery, callback_data: PagesActionCallback, state: FSMContext, bot: Bot):
+    await callback.answer()
+
+    if callback_data.action == "cancel":
+        data = await state.get_data()
+        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_pages_message_id"])
+        await state.set_state(PrintWork.wait_for_acceptance)
+    elif callback_data.action == "reset":
+        await state.update_data(page_ranges=None)
+        data = await state.get_data()
+
+        printer = await api_client.get_printer(callback.from_user.id, data["printer"])
+        caption, markup = format_draft_message(data, printer)
+        try:
+            await bot.edit_message_caption(
+                caption=caption,
+                chat_id=callback.message.chat.id,
+                message_id=data["confirmation_message"],
+                reply_markup=markup,
+            )
+        except TelegramBadRequest:
+            pass
+        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_pages_message_id"])
+        await state.set_state(PrintWork.wait_for_acceptance)
 
 
 @router.message(SetupPagesWork.set_pages)
