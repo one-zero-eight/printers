@@ -95,7 +95,7 @@ async def prepare_printing(file: UploadFile, innohassle_user_id: USER_AUTH) -> P
         ):
             in_f.write(await file.read())
             in_f.flush()
-            converting_repository.any2pdf(in_f.name, out_f.name)
+            await asyncio.to_thread(converting_repository.any2pdf, in_f.name, out_f.name)
             in_f.close()
             tempfiles[(innohassle_user_id, out_f.name)] = out_f
             return PreparePrintingResponse(filename=out_f.name, pages=len(PyPDF2.PdfReader(out_f).pages))
