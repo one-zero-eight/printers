@@ -28,17 +28,17 @@ class LogAllEventsMiddleware(BaseMiddleware):
         try:
             # get to `aiogram.dispatcher.event.TelegramEventObserver.trigger` method
             frame = inspect.currentframe()
-            frame_info = inspect.getframeinfo(frame)
+            frame_info = inspect.getframeinfo(frame)  # type: ignore
             while frame is not None:
                 if frame_info.function == "trigger":
-                    _handler = frame.f_locals.get("handler")
+                    _handler = frame.f_locals.get("handler")  # type: ignore
                     if _handler is not None:
                         _handler: HandlerObject
                         record = self._create_log_record(_handler, event, data, duration=duration)
                         logger.handle(record)
                     break
                 frame = frame.f_back
-                frame_info = inspect.getframeinfo(frame)
+                frame_info = inspect.getframeinfo(frame)  # type: ignore
         finally:
             del frame
         return r
@@ -53,8 +53,8 @@ class LogAllEventsMiddleware(BaseMiddleware):
 
         event_type = type(event).__name__
         if hasattr(event, "from_user"):
-            username = event.from_user.username
-            user_string = f"User @{username}<{event.from_user.id}>" if username else f"User <{event.from_user.id}>"
+            username = event.from_user.username  # type: ignore
+            user_string = f"User @{username}<{event.from_user.id}>" if username else f"User <{event.from_user.id}>"  # type: ignore
         else:
             user_string = "User <unknown>"
 
@@ -75,7 +75,7 @@ class LogAllEventsMiddleware(BaseMiddleware):
         record = logging.LogRecord(
             name="src.bot.middlewares.LogAllEventsMiddleware",
             level=logging.INFO,
-            pathname=pathname,
+            pathname=pathname or "",
             lineno=lineno,
             msg=msg,
             args=(),

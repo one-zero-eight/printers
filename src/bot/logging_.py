@@ -5,6 +5,7 @@ import logging.config
 import os
 from collections.abc import Mapping
 from logging import LogRecord
+from typing import cast
 
 
 class RelativePathFilter(logging.Filter):
@@ -61,9 +62,8 @@ class LoggerFromCaller(logging.Logger):
     ) -> LogRecord:
         record = super().makeRecord(name, level, fn, lno, msg, args, exc_info, func, extra, sinfo)
         if extra is not None:
-            step_back = extra.get("step_back", 0)
+            step_back: int = cast(int, extra.get("step_back", 0))
             if step_back:
-                step_back: int
                 frame = inspect.currentframe()
                 for _ in range(step_back):
                     frame = frame.f_back

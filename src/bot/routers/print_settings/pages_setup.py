@@ -61,10 +61,11 @@ def normalize_page_ranges(page_ranges: str) -> str:
 async def job_settings_pages(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.set_state(SetupPagesWork.set_pages)
+    data = await state.get_data()
     message = await callback.message.answer(
         text="📑 Send here page ranges to be printed\n\n"
         f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
-        f"Current pages: {html.bold(html.quote(await state.get_data())["page_ranges"])}"
+        f"Current pages: {html.bold(html.quote(data["page_ranges"]))}"
     )
     await state.update_data(job_settings_pages_message_id=message.message_id)
 
@@ -76,7 +77,7 @@ def sub(integers: map) -> int:
 @router.message(SetupPagesWork.set_pages)
 async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
     await message.delete()
-    if (normalized := normalize_page_ranges(message.text)) != message.text:
+    if message.text and (normalized := normalize_page_ranges(message.text)) != message.text:
         await bot.edit_message_text(
             message_id=(await state.get_data())["job_settings_pages_message_id"],
             chat_id=message.chat.id,

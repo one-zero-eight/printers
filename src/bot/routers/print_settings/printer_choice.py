@@ -2,17 +2,18 @@ import asyncio
 
 import aiogram.exceptions
 from aiogram import Bot, F, Router, html
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
+    Message,
 )
 
 from src.bot.api import api_client
 from src.bot.keyboards import confirmation_keyboard, printers_keyboard
 from src.bot.routers.printing.printing_states import PrintWork
 from src.bot.routers.printing.printing_tools import update_confirmation_keyboard
-from src.bot.routers.registration import RegistrationWork
 from src.config import settings
 from src.config_schema import Printer
 from src.modules.printing.entity_models import PrinterStatus
@@ -34,34 +35,17 @@ async def job_settings_printer(callback: CallbackQuery, state: FSMContext, bot: 
         f"🖨📠 Choose {html.bold("the printer")}", reply_markup=printers_keyboard(printers)
     )
 
-    async def job():
-        tasks = [
-            api_client.get_printer_status(callback.from_user.id, printer.name)
-            for printer in printers
-            if isinstance(printer, Printer)
-        ]
-        for t in asyncio.as_completed(tasks):
-            if await state.get_state() != SetupPrinterWork.set_printer:
-                return
-            result = await t
-            if isinstance(result, PrinterStatus):
-                for i, p in enumerate(printers):
-                    if isinstance(p, Printer) and p.name == result.printer.name:
-                        printers[i] = result
-
-            new_reply_markup = printers_keyboard(printers)
-            if await state.get_state() != RegistrationWork.printer_is_not_set:
-                return
-            try:
-                await bot.edit_message_reply_markup(
-                    chat_id=callback.message.chat.id,
-                    message_id=msg.message_id,
-                    reply_markup=new_reply_markup,
-                )
-            except aiogram.exceptions.TelegramBadRequest:
-                pass
-
-    asyncio.create_task(job())
+    asyncio.create_task(
+        update_printer_statuses(
+            callback.from_user.id,
+            callback.message.chat.id,
+            msg.message_id,
+            printers,
+            state,
+            bot,
+            checkable_state=SetupPrinterWork.set_printer,
+        )
+    )
 
 
 @router.callback_query(
@@ -80,5 +64,42 @@ async def apply_settings_printer(callback: CallbackQuery, state: FSMContext, bot
         )
     except aiogram.exceptions.TelegramBadRequest:
         pass
-    await callback.message.delete()
+    if isinstance(callback.message, Message):
+        await callback.message.delete()
     await state.set_state(PrintWork.wait_for_acceptance)
+
+
+async def update_printer_statuses(
+    from_user_id: int,
+    chat_id: int,
+    message_id: int,
+    printers: list,
+    state: FSMContext,
+    bot: Bot,
+    checkable_state: State,
+):
+    tasks = [
+        api_client.get_printer_status(from_user_id, printer.name)
+        for printer in printers
+        if isinstance(printer, Printer)
+    ]
+    for t in asyncio.as_completed(tasks):
+        if await state.get_state() != checkable_state:
+            return
+        result = await t
+        if isinstance(result, PrinterStatus):
+            for i, p in enumerate(printers):
+                if isinstance(p, Printer) and p.name == result.printer.name:
+                    printers[i] = result  # type: ignore
+
+        new_reply_markup = printers_keyboard(printers)
+        if await state.get_state() != checkable_state:
+            return
+        try:
+            await bot.edit_message_reply_markup(
+                chat_id=chat_id,
+                message_id=message_id,
+                reply_markup=new_reply_markup,
+            )
+        except TelegramBadRequest:
+            pass

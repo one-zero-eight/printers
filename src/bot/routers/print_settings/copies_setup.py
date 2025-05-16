@@ -33,7 +33,7 @@ async def job_settings_copies(callback: CallbackQuery, state: FSMContext):
 @router.message(SetupCopiesWork.set_copies)
 async def apply_settings_copies(message: Message, state: FSMContext, bot: Bot):
     await message.delete()
-    if message.text.isdigit():
+    if message.text and message.text.isdigit():
         await state.update_data(copies=str(max(0, min(50, int(message.text)))))
         data = await state.get_data()
         update_confirmation_keyboard(data)

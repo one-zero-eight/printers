@@ -1,7 +1,6 @@
 import asyncio
 
 from aiogram import Bot, Router, html, types
-from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -14,8 +13,7 @@ from src.bot import shared_messages
 from src.bot.api import api_client
 from src.bot.entry_filters import InnohassleUserFilter
 from src.bot.keyboards import printers_keyboard
-from src.config_schema import Printer
-from src.modules.printing.entity_models import PrinterStatus
+from src.bot.routers.print_settings.printer_choice import update_printer_statuses
 
 router = Router(name="registration")
 
@@ -38,40 +36,24 @@ async def command_start_handler(message: Message, state: FSMContext, bot: Bot):
         reply_markup=printers_keyboard(printers),
     )
 
-    async def job():
-        tasks = [
-            api_client.get_printer_status(message.from_user.id, printer.name)
-            for printer in printers
-            if isinstance(printer, Printer)
-        ]
-        for t in asyncio.as_completed(tasks):
-            if await state.get_state() != RegistrationWork.printer_is_not_set:
-                return
-            result = await t
-            if isinstance(result, PrinterStatus):
-                for i, p in enumerate(printers):
-                    if isinstance(p, Printer) and p.name == result.printer.name:
-                        printers[i] = result
-
-            new_reply_markup = printers_keyboard(printers)
-            if await state.get_state() != RegistrationWork.printer_is_not_set:
-                return
-            try:
-                await bot.edit_message_reply_markup(
-                    chat_id=message.chat.id,
-                    message_id=msg.message_id,
-                    reply_markup=new_reply_markup,
-                )
-            except TelegramBadRequest:
-                pass
-
-    asyncio.create_task(job())
+    asyncio.create_task(
+        update_printer_statuses(
+            message.from_user.id,
+            message.chat.id,
+            msg.message_id,
+            printers,
+            state,
+            bot,
+            checkable_state=RegistrationWork.printer_is_not_set,
+        )
+    )
 
 
 @router.callback_query(RegistrationWork.printer_is_not_set)
 async def registration_work_set_printer(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    await callback.message.delete_reply_markup()
+    if isinstance(callback.message, Message):
+        await callback.message.delete_reply_markup()
     await state.update_data(printer=callback.data)
     await shared_messages.send_something(callback, state)
 

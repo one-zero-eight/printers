@@ -6,6 +6,7 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    Message,
 )
 
 from src.bot.keyboards import confirmation_keyboard
@@ -54,5 +55,6 @@ async def apply_settings_layout(callback: CallbackQuery, state: FSMContext, bot:
         )
     except aiogram.exceptions.TelegramBadRequest:
         pass
-    await callback.message.delete()
+    if isinstance(callback.message, Message):
+        await callback.message.delete()
     await state.set_state(PrintWork.wait_for_acceptance)
