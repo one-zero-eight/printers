@@ -201,19 +201,23 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
         # Format message
         caption = format_printing_message(data, printer, job_attributes, iteration)
 
+        is_job_finished = job_attributes.job_state in [
+            JobStateEnum.completed,
+            JobStateEnum.canceled,
+            JobStateEnum.aborted,
+        ]
+
         # Update message caption with all the information
         try:
             if isinstance(callback.message, Message):
-                await callback.message.edit_caption(caption=caption, reply_markup=cancel_keyboard)
+                await callback.message.edit_caption(
+                    caption=caption, reply_markup=cancel_keyboard if not is_job_finished else None
+                )
         except aiogram.exceptions.TelegramBadRequest:
             pass
 
         # Handle ended job
-        if job_attributes.job_state in [
-            JobStateEnum.completed,
-            JobStateEnum.canceled,
-            JobStateEnum.aborted,
-        ]:
+        if is_job_finished:
             await shared_messages.send_something(callback, state, job_attributes)
             break
 
