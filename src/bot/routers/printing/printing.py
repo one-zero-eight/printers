@@ -1,11 +1,12 @@
 import asyncio
 import io
 import time
+from typing import Literal
 
 import aiogram.exceptions
 import httpx
 from aiogram import Bot, F, Router, html
-from aiogram.enums import ChatAction
+from aiogram.filters.callback_data import CallbackData
 from aiogram.filters.logic import or_f
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
@@ -23,6 +24,7 @@ from src.bot.api import api_client
 from src.bot.logging_ import logger
 from src.bot.routers.printing.printing_states import PrintWork
 from src.bot.routers.printing.printing_tools import (
+    MenuCallback,
     count_of_papers_to_print,
     format_draft_message,
     format_printing_message,
@@ -140,7 +142,7 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
         await state.set_state(PrintWork.wait_for_acceptance)
 
 
-@router.callback_query(PrintWork.wait_for_acceptance, F.data == "Cancel")
+@router.callback_query(PrintWork.wait_for_acceptance, MenuCallback.filter(F.menu == "cancel"))
 async def print_work_preparation_cancel(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
@@ -155,11 +157,15 @@ async def print_work_preparation_cancel(callback: CallbackQuery, state: FSMConte
     await shared_messages.send_something(callback, state)
 
 
-@router.callback_query(PrintWork.wait_for_acceptance, F.data == "Confirm")
+class MenuDuringPrintingCallback(CallbackData, prefix="menu_during_printing"):
+    menu: Literal["cancel"]
+    job_id: int
+
+
+@router.callback_query(PrintWork.wait_for_acceptance, MenuCallback.filter(F.menu == "confirm"))
 async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
     await state.set_state(PrintWork.printing)
-    await bot.send_chat_action(chat_id=callback.message.chat.id, action=ChatAction.UPLOAD_DOCUMENT)
 
     # Get data and set up printing options
     data = await state.get_data()
@@ -189,7 +195,14 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
 
     # Update UI with cancel button
     cancel_keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="✖️ Cancel", callback_data=str(job_id))]]
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✖️ Cancel",
+                    callback_data=MenuDuringPrintingCallback(menu="cancel", job_id=job_id).pack(),
+                )
+            ]
+        ]
     )
     if isinstance(callback.message, Message):
         await callback.message.edit_reply_markup(reply_markup=cancel_keyboard)
@@ -262,19 +275,18 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
         await shared_messages.send_something(callback, state, job_attributes)
 
 
-@router.callback_query(PrintWork.printing)
-async def print_work_cancel(callback: CallbackQuery, state: FSMContext):
-    if callback.data is not None:
-        job_id = int(callback.data)
-        data = await state.get_data()
-        job_attributes = await api_client.check_job(callback.from_user.id, job_id)
-        await api_client.cancel_job(callback.from_user.id, job_id)
-        await shared_messages.send_something(callback, state, job_attributes)
+@router.callback_query(PrintWork.printing, MenuDuringPrintingCallback.filter(F.menu == "cancel"))
+async def print_work_cancel(callback: CallbackQuery, callback_data: MenuDuringPrintingCallback, state: FSMContext):
+    job_id = callback_data.job_id
+    data = await state.get_data()
+    job_attributes = await api_client.check_job(callback.from_user.id, job_id)
+    await api_client.cancel_job(callback.from_user.id, job_id)
+    await shared_messages.send_something(callback, state, job_attributes)
 
-        printer = await api_client.get_printer(callback.from_user.id, data["printer"])
-        try:
-            caption = format_printing_message(data, printer, job_attributes, canceled_manually=True)
-            if isinstance(callback.message, Message):
-                await callback.message.edit_caption(caption=caption)
-        except (aiogram.exceptions.TelegramBadRequest, KeyError):
-            pass
+    printer = await api_client.get_printer(callback.from_user.id, data["printer"])
+    try:
+        caption = format_printing_message(data, printer, job_attributes, canceled_manually=True)
+        if isinstance(callback.message, Message):
+            await callback.message.edit_caption(caption=caption)
+    except (aiogram.exceptions.TelegramBadRequest, KeyError):
+        pass

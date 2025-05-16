@@ -1,5 +1,8 @@
+from typing import Literal
+
 import aiogram.exceptions
 from aiogram import Bot, F, Router, html
+from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
@@ -11,7 +14,7 @@ from aiogram.types import (
 
 from src.bot.api import api_client
 from src.bot.routers.printing.printing_states import PrintWork
-from src.bot.routers.printing.printing_tools import format_draft_message
+from src.bot.routers.printing.printing_tools import MenuCallback, format_draft_message
 
 router = Router(name="layout_setup")
 
@@ -20,7 +23,11 @@ class SetupLayoutWork(StatesGroup):
     set_layout = State()
 
 
-@router.callback_query(PrintWork.wait_for_acceptance, F.data == "Layout")
+class LayoutCallback(CallbackData, prefix="layout"):
+    number_up: Literal["1", "4", "9"]
+
+
+@router.callback_query(PrintWork.wait_for_acceptance, MenuCallback.filter(F.menu == "layout"))
 async def job_settings_layout(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.set_state(SetupLayoutWork.set_layout)
@@ -30,18 +37,18 @@ async def job_settings_layout(callback: CallbackQuery, state: FSMContext):
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
-                    InlineKeyboardButton(text="1x1", callback_data="1"),
-                    InlineKeyboardButton(text="2x2", callback_data="4"),
-                    InlineKeyboardButton(text="3x3", callback_data="9"),
+                    InlineKeyboardButton(text="1x1", callback_data=LayoutCallback(number_up="1").pack()),
+                    InlineKeyboardButton(text="2x2", callback_data=LayoutCallback(number_up="4").pack()),
+                    InlineKeyboardButton(text="3x3", callback_data=LayoutCallback(number_up="9").pack()),
                 ]
             ]
         ),
     )
 
 
-@router.callback_query(SetupLayoutWork.set_layout, lambda callback: callback.data in ["1", "4", "9"])
-async def apply_settings_layout(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    await state.update_data(number_up=callback.data)
+@router.callback_query(SetupLayoutWork.set_layout, LayoutCallback.filter())
+async def apply_settings_layout(callback: CallbackQuery, callback_data: LayoutCallback, state: FSMContext, bot: Bot):
+    await state.update_data(number_up=callback_data.number_up)
     data = await state.get_data()
     printer = await api_client.get_printer(callback.from_user.id, data["printer"])
     caption, markup = format_draft_message(data, printer)

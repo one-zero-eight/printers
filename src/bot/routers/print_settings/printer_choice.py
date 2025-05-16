@@ -12,7 +12,12 @@ from aiogram.types import (
 
 from src.bot.api import api_client
 from src.bot.routers.printing.printing_states import PrintWork
-from src.bot.routers.printing.printing_tools import PrinterCallback, format_draft_message, printers_keyboard
+from src.bot.routers.printing.printing_tools import (
+    MenuCallback,
+    PrinterCallback,
+    format_draft_message,
+    printers_keyboard,
+)
 from src.config_schema import Printer
 from src.modules.printing.entity_models import PrinterStatus
 
@@ -23,7 +28,7 @@ class SetupPrinterWork(StatesGroup):
     set_printer = State()
 
 
-@router.callback_query(PrintWork.wait_for_acceptance, F.data == "Printer")
+@router.callback_query(PrintWork.wait_for_acceptance, MenuCallback.filter(F.menu == "printer"))
 async def job_settings_printer(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
     await state.set_state(SetupPrinterWork.set_printer)

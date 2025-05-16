@@ -1,6 +1,6 @@
 import math
 from collections.abc import Sequence
-from typing import Any, assert_never
+from typing import Any, Literal, assert_never
 
 from aiogram import html
 from aiogram.filters.callback_data import CallbackData
@@ -9,6 +9,10 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.config_schema import Printer
 from src.modules.printing.entity_models import JobAttributes, JobStateEnum, PrinterStatus
+
+
+class MenuCallback(CallbackData, prefix="menu"):
+    menu: Literal["printer", "copies", "pages", "sides", "layout", "cancel", "confirm"]
 
 
 def format_draft_message(
@@ -45,28 +49,28 @@ def format_draft_message(
     markup = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="Printer", callback_data="Printer"),
-                InlineKeyboardButton(text=display_printer, callback_data="Printer"),
+                InlineKeyboardButton(text="Printer", callback_data=MenuCallback(menu="printer").pack()),
+                InlineKeyboardButton(text=display_printer, callback_data=MenuCallback(menu="printer").pack()),
             ],
             [
-                InlineKeyboardButton(text="Copies", callback_data="Copies"),
-                InlineKeyboardButton(text=display_copies, callback_data="Copies"),
+                InlineKeyboardButton(text="Copies", callback_data=MenuCallback(menu="copies").pack()),
+                InlineKeyboardButton(text=display_copies, callback_data=MenuCallback(menu="copies").pack()),
             ],
             [
-                InlineKeyboardButton(text="Pages", callback_data="Pages"),
-                InlineKeyboardButton(text=display_page_ranges, callback_data="Pages"),
+                InlineKeyboardButton(text="Pages", callback_data=MenuCallback(menu="pages").pack()),
+                InlineKeyboardButton(text=display_page_ranges, callback_data=MenuCallback(menu="pages").pack()),
             ],
             [
-                InlineKeyboardButton(text="Print on", callback_data="Sides"),
-                InlineKeyboardButton(text=display_sides, callback_data="Sides"),
+                InlineKeyboardButton(text="Print on", callback_data=MenuCallback(menu="sides").pack()),
+                InlineKeyboardButton(text=display_sides, callback_data=MenuCallback(menu="sides").pack()),
             ],
             [
-                InlineKeyboardButton(text="Layout", callback_data="Layout"),
-                InlineKeyboardButton(text=display_layout, callback_data="Layout"),
+                InlineKeyboardButton(text="Layout", callback_data=MenuCallback(menu="layout").pack()),
+                InlineKeyboardButton(text=display_layout, callback_data=MenuCallback(menu="layout").pack()),
             ],
             [
-                InlineKeyboardButton(text="✖️ Cancel", callback_data="Cancel"),
-                InlineKeyboardButton(text="✅ Confirm", callback_data="Confirm"),
+                InlineKeyboardButton(text="✖️ Cancel", callback_data=MenuCallback(menu="cancel").pack()),
+                InlineKeyboardButton(text="✅ Confirm", callback_data=MenuCallback(menu="confirm").pack()),
             ],
         ]
     )

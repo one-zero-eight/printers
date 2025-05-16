@@ -2,14 +2,11 @@ import aiogram.exceptions
 from aiogram import Bot, F, Router, html
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import (
-    CallbackQuery,
-    Message,
-)
+from aiogram.types import CallbackQuery, Message
 
 from src.bot.api import api_client
 from src.bot.routers.printing.printing_states import PrintWork
-from src.bot.routers.printing.printing_tools import format_draft_message
+from src.bot.routers.printing.printing_tools import MenuCallback, format_draft_message
 
 router = Router(name="copies_setup")
 
@@ -18,7 +15,7 @@ class SetupCopiesWork(StatesGroup):
     set_copies = State()
 
 
-@router.callback_query(PrintWork.wait_for_acceptance, F.data == "Copies")
+@router.callback_query(PrintWork.wait_for_acceptance, MenuCallback.filter(F.menu == "copies"))
 async def job_settings_copies(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.set_state(SetupCopiesWork.set_copies)
