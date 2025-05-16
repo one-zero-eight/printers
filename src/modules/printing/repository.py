@@ -46,9 +46,11 @@ class PrintingRepository:
 
     async def get_printer_status(self, printer: Printer) -> PrinterStatus:
         _start = time.perf_counter()
-        attributes = self.server.getPrinterAttributes(printer.cups_name, requested_attributes=["marker-levels"])
-        logger.info(f"Printer {printer.cups_name} getPrinterAttributes time: {time.perf_counter() - _start:.4f}s")
-        logger.info(f"Printer {printer.cups_name} attributes: {attributes}")
+        try:
+            attributes = self.server.getPrinterAttributes(printer.cups_name, requested_attributes=["marker-levels"])
+        except cups.IPPError as e:
+            logger.warning(e)
+            attributes = {}
 
         marker_levels = attributes.get("marker-levels")
         toner_percentage = None
@@ -56,17 +58,35 @@ class PrintingRepository:
 
         if marker_levels:
             toner_percentage = marker_levels[0]
+        offline = await self._is_printer_offline(printer)
 
-        try:
-            paper_percentage = await self._fetch_paper_status(printer)
-        except Exception as e:
-            logger.warning(e)
+        if offline:  # only from cache
+            paper_percentage = self._printer_paper_status_cache.get(printer.ipp)
+        else:  # otherwise fetch from printer, or from cache if ttl is not expired
+            try:
+                paper_percentage = await self._fetch_paper_status(printer)
+            except Exception as e:
+                logger.warning(e)
 
         return PrinterStatus(
             printer=printer,
+            offline=offline,
             toner_percentage=toner_percentage,
             paper_percentage=paper_percentage,
         )
+
+    async def _is_printer_offline(self, printer: Printer) -> bool:
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.head(f"http://{printer.ipp}")
+                if response.status_code == httpx.codes.METHOD_NOT_ALLOWED:
+                    return False  # online
+                else:
+                    logger.warning(f"Printer {printer.cups_name} unexpected response: {response}")
+                    return True
+            except (httpx.ConnectError, httpx.ReadTimeout) as e:
+                logger.warning(f"Printer {printer.cups_name} is offline: {e}")
+                return True
 
     async def _fetch_paper_status(self, printer: Printer, use_cache: bool = True) -> int | None:
         # Check cache first
@@ -78,10 +98,7 @@ class PrintingRepository:
 
         async with httpx.AsyncClient() as client:
             _start = time.perf_counter()
-            if ":" in printer.ipp:
-                response = await client.get(f"http://{printer.ipp}")
-            else:
-                response = await client.get(f"http://{printer.ipp}:631")
+            response = await client.get(f"http://{printer.ipp}")
             logger.info(f"Printer {printer.cups_name} fetch time: {time.perf_counter() - _start:.4f}s")
             if response.status_code == httpx.codes.OK:
                 percentage = self._parse_paper_percentage(response.text)

@@ -481,5 +481,6 @@ class JobAttributes(BaseSchema):
 
 class PrinterStatus(BaseSchema):
     printer: Printer
+    offline: bool
     paper_percentage: int | None
     toner_percentage: int | None

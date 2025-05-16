@@ -161,7 +161,9 @@ def printers_keyboard(printers: Sequence[PrinterStatus | Printer]) -> InlineKeyb
         if isinstance(status_or_printer, PrinterStatus):
             printer = status_or_printer.printer
             show_text = printer.display_name
-            if status_or_printer.toner_percentage is not None and status_or_printer.paper_percentage is not None:
+            if status_or_printer.offline:
+                show_text += " ☠️ Offline"
+            elif status_or_printer.toner_percentage is not None and status_or_printer.paper_percentage is not None:
                 show_text += f" 🩸 {status_or_printer.toner_percentage}% 📄 {status_or_printer.paper_percentage}%"
             elif status_or_printer.toner_percentage is not None:
                 show_text += f" 🩸 {status_or_printer.toner_percentage}%"
