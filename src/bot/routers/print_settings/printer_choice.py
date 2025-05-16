@@ -53,6 +53,9 @@ async def job_settings_printer(callback: CallbackQuery, state: FSMContext, bot: 
 )
 async def apply_settings_printer(callback: CallbackQuery, state: FSMContext, bot: Bot):
     printer_cups_name = callback.data
+    if printer_cups_name is None:
+        await callback.answer("Printer not found")
+        return
     printer = await api_client.get_printer(callback.from_user.id, printer_cups_name)
     if printer is None:  # Wrong callback.data, no such printer exist now
         await callback.answer("Printer not found")
