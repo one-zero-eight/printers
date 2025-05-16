@@ -7,7 +7,9 @@ from typing import Any
 
 from aiogram import BaseMiddleware
 from aiogram.dispatcher.event.handler import HandlerObject
+from aiogram.dispatcher.flags import get_flag
 from aiogram.types import CallbackQuery, Message, TelegramObject
+from aiogram.utils.chat_action import ChatActionSender
 
 from src.bot.logging_ import logger
 
@@ -84,3 +86,21 @@ class LogAllEventsMiddleware(BaseMiddleware):
         )
         record.relativePath = os.path.relpath(record.pathname)
         return record
+
+
+class ChatActionMiddleware(BaseMiddleware):
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: dict[str, Any],
+    ) -> Any:
+        chat_action = get_flag(data, "chat_action")
+        if chat_action is None:
+            return await handler(event, data)
+        if isinstance(event, Message):
+            chat_id = event.chat.id
+        elif isinstance(event, CallbackQuery):
+            chat_id = event.message.chat.id
+        async with ChatActionSender(bot=data["bot"], chat_id=chat_id, action=chat_action):
+            return await handler(event, data)

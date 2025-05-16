@@ -6,7 +6,7 @@ from aiogram.enums import ParseMode
 
 import src.bot.logging_  # noqa: F401
 from src.bot.dispatcher import CustomDispatcher
-from src.bot.middlewares import LogAllEventsMiddleware
+from src.bot.middlewares import ChatActionMiddleware, LogAllEventsMiddleware
 from src.bot.routers.print_settings.copies_setup import router as copies_setup_router
 from src.bot.routers.print_settings.layout_setup import router as layout_setup_router
 from src.bot.routers.print_settings.pages_setup import router as pages_setup_router
@@ -23,6 +23,10 @@ async def main() -> None:
     log_all_events_middleware = LogAllEventsMiddleware()
     dispatcher.message.middleware(log_all_events_middleware)
     dispatcher.callback_query.middleware(log_all_events_middleware)
+    chat_action_middleware = ChatActionMiddleware()
+    dispatcher.message.middleware(chat_action_middleware)
+    dispatcher.callback_query.middleware(chat_action_middleware)
+
     for router in (
         registration_router,
         printing_router,
