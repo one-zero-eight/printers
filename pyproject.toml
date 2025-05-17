@@ -45,6 +45,7 @@ lint.ignore = [
 ]
 lint.extend-select = ["I", "UP", "PL"]
 target-version = "py312"
+extend-exclude = ["typings"]
 
 [tool.pyright]
 include = ["src"]
