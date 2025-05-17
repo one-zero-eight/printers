@@ -33,9 +33,9 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: alembic/
+        exclude: typings/
       - id: end-of-file-fixer
-        exclude: alembic/
+        exclude: typings/
       - id: check-added-large-files
 
   # Local linting
