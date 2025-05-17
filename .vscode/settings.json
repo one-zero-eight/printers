@@ -4,5 +4,11 @@
     "python.analysis.extraPaths": [
         "typings"
     ],
-    "python.analysis.autoImportCompletions": true
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.packageIndexDepths": [
+        {
+            "name": "aiogram",
+            "depth": 5
+        },
+    ]
 }
