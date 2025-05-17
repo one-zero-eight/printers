@@ -33,9 +33,9 @@ async def main() -> None:
     async def unhandled_error(event: ErrorEvent):
         update = event.update
         if update.message is not None:
-            await update.message.answer(f"Unknown error ⚠️:\n{hblockquote(event.exception)}")
+            await update.message.answer(f"Unknown error ⚠️\n{hblockquote(event.exception)}")
         elif update.callback_query is not None:
-            await update.callback_query.answer(f"Unknown error ⚠️:\n{hblockquote(event.exception)}")
+            await update.callback_query.answer(f"Unknown error ⚠️\n{hblockquote(event.exception)}")
         raise  # noqa: PLE0704
 
     for router in (
