@@ -3,6 +3,8 @@ import asyncio
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.types import ErrorEvent
+from aiogram.utils.markdown import hblockquote
 
 import src.bot.logging_  # noqa: F401
 from src.bot.dispatcher import CustomDispatcher
@@ -26,6 +28,15 @@ async def main() -> None:
     chat_action_middleware = ChatActionMiddleware()
     dispatcher.message.middleware(chat_action_middleware)
     dispatcher.callback_query.middleware(chat_action_middleware)
+
+    @dispatcher.error()
+    async def unhandled_error(event: ErrorEvent):
+        update = event.update
+        if update.message is not None:
+            await update.message.answer(f"Unknown error ⚠️:\n{hblockquote(event.exception)}")
+        elif update.callback_query is not None:
+            await update.callback_query.answer(f"Unknown error ⚠️:\n{hblockquote(event.exception)}")
+        raise  # noqa: PLE0704
 
     for router in (
         registration_router,
