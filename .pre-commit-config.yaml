@@ -53,11 +53,3 @@ repos:
         language: system
         pass_filenames: false
         files: "pyproject.toml"
-      - id: alembic-auto-migrations
-        name: generate alembic auto migrations files
-        language: system
-        entry: uv run ./scripts/alembic_auto_migrations.py
-        pass_filenames: false
-        files: storages/
-        stages:
-          - commit-msg
