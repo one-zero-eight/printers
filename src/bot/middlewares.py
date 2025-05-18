@@ -101,6 +101,6 @@ class ChatActionMiddleware(BaseMiddleware):
         if isinstance(event, Message):
             chat_id = event.chat.id
         elif isinstance(event, CallbackQuery):
-            chat_id = event.message.chat.id
+            chat_id = event.from_user.id
         async with ChatActionSender(bot=data["bot"], chat_id=chat_id, action=chat_action):
             return await handler(event, data)

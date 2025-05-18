@@ -4,9 +4,10 @@ import httpx
 from pydantic import TypeAdapter
 
 from src.config import settings
-from src.config_schema import Printer
+from src.config_schema import Printer, Scanner
 from src.modules.printing.entity_models import JobAttributes, PrinterStatus, PrintingOptions
 from src.modules.printing.routes import PreparePrintingResponse
+from src.modules.scanning.entity_models import ScanningOptions
 
 
 class InNoHasslePrintAPI:
@@ -89,9 +90,9 @@ class InNoHasslePrintAPI:
             return adapter.validate_python(response.json())
 
     async def get_printer(self, telegram_id: int, printer_cups_name: str | None = None) -> Printer | None:
-        printers = await self.get_printers_list(telegram_id)
         if printer_cups_name is None:
-            return printers[0] if printers else None
+            return None
+        printers = await self.get_printers_list(telegram_id)
         for printer in printers:
             if printer.cups_name == printer_cups_name:
                 return printer
@@ -104,12 +105,71 @@ class InNoHasslePrintAPI:
             adapter = TypeAdapter(list[PrinterStatus])
             return adapter.validate_python(response.json())
 
-    async def get_printer_status(self, telegram_id: int, printer_cups_name: str) -> PrinterStatus:
+    async def get_printer_status(self, telegram_id: int, printer_cups_name: str | None = None) -> PrinterStatus | None:
+        if printer_cups_name is None:
+            return None
         params = {"printer_cups_name": printer_cups_name}
         async with self._create_client(telegram_id) as client:
             response = await client.get("/print/get_printer_status", params=params)
             response.raise_for_status()
             return PrinterStatus.model_validate(response.json())
+
+    async def get_scanners_list(self, telegram_id: int) -> list[Scanner]:
+        async with self._create_client(telegram_id) as client:
+            response = await client.get("/scan/get_scanners")
+            response.raise_for_status()
+            adapter = TypeAdapter(list[Scanner])
+            return adapter.validate_python(response.json())
+
+    async def get_scanner(self, telegram_id: int, scanner_name: str | None = None) -> Scanner | None:
+        if scanner_name is None:
+            return None
+        scanners = await self.get_scanners_list(telegram_id)
+        for scanner in scanners:
+            if scanner.name == scanner_name:
+                return scanner
+        return None
+
+    async def start_manual_scan(self, telegram_id: int, scanner: Scanner, scanning_options: ScanningOptions) -> str:
+        params = {"scanner_name": scanner.name}
+        data = {"scanning_options": scanning_options.model_dump(by_alias=True)}
+        async with self._create_client(telegram_id) as client:
+            response = await client.post(
+                "/scan/manual/start_scan", params=params, json=data, timeout=httpx.Timeout(None)
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def cancel_manual_scan(self, telegram_id: int, document_url: str) -> None:
+        params = {"document_url": document_url}
+        async with self._create_client(telegram_id) as client:
+            response = await client.post("/scan/manual/cancel_scan", params=params)
+            response.raise_for_status()
+
+    async def wait_and_merge_manual_scan(
+        self, telegram_id: int, scanner: Scanner, document_url: str, prev_filename: str | None
+    ) -> str:
+        params = {"scanner_name": scanner.name, "document_url": document_url}
+        if prev_filename:
+            params["prev_filename"] = prev_filename
+        async with self._create_client(telegram_id) as client:
+            response = await client.post("/scan/manual/wait_and_merge", params=params, timeout=httpx.Timeout(None))
+            response.raise_for_status()
+            return response.json()
+
+    async def remove_last_page_manual_scan(self, telegram_id: int, filename: str) -> str:
+        params = {"filename": filename}
+        async with self._create_client(telegram_id) as client:
+            response = await client.post("/scan/manual/remove_last_page", params=params, timeout=httpx.Timeout(None))
+            response.raise_for_status()
+            return response.json()
+
+    async def get_scanned_file(self, telegram_id: int, filename: str) -> bytes:
+        params = {"filename": filename}
+        async with self._create_client(telegram_id) as client:
+            response = await client.get("/scan/get_file", params=params)
+            response.raise_for_status()
+            return response.content
 
 
 api_client: InNoHasslePrintAPI = InNoHasslePrintAPI(settings.bot.api_url)

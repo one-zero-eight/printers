@@ -3,19 +3,26 @@ import asyncio
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import ErrorEvent
 from aiogram.utils.markdown import hblockquote
 
 import src.bot.logging_  # noqa: F401
 from src.bot.dispatcher import CustomDispatcher
 from src.bot.middlewares import ChatActionMiddleware, LogAllEventsMiddleware
-from src.bot.routers.print_settings.copies_setup import router as copies_setup_router
-from src.bot.routers.print_settings.layout_setup import router as layout_setup_router
-from src.bot.routers.print_settings.pages_setup import router as pages_setup_router
-from src.bot.routers.print_settings.printer_choice import router as printer_choice_router
-from src.bot.routers.print_settings.sides_setup import router as sides_setup_router
+from src.bot.routers.globals import router as globals_router
+from src.bot.routers.print_settings.copies_setup import router as print_copies_setup_router
+from src.bot.routers.print_settings.layout_setup import router as print_layout_setup_router
+from src.bot.routers.print_settings.pages_setup import router as print_pages_setup_router
+from src.bot.routers.print_settings.printer_setup import router as print_printer_setup_router
+from src.bot.routers.print_settings.sides_setup import router as print_sides_setup_router
 from src.bot.routers.printing.printing import router as printing_router
-from src.bot.routers.registration import router as registration_router
+from src.bot.routers.scanning.scan_settings.mode_setup import router as scan_mode_setup_router
+from src.bot.routers.scanning.scan_settings.quality_setup import router as scan_quality_setup_router
+from src.bot.routers.scanning.scan_settings.scanner_setup import router as scan_scanner_setup_router
+from src.bot.routers.scanning.scan_settings.sides_setup import router as scan_sides_setup_router
+from src.bot.routers.scanning.scanning import router as scanning_router
+from src.bot.routers.unauthenticated import router as unauthenticated_router
 from src.config import settings
 
 
@@ -31,21 +38,29 @@ async def main() -> None:
 
     @dispatcher.error()
     async def unhandled_error(event: ErrorEvent):
-        update = event.update
-        if update.message is not None:
-            await update.message.answer(f"Unknown error ⚠️\n{hblockquote(event.exception)}")
-        elif update.callback_query is not None:
-            await update.callback_query.answer(f"Unknown error ⚠️\n{hblockquote(event.exception)}")
+        message = event.update.callback_query.message if event.update.callback_query else event.update.message
+        try:
+            await message.answer(
+                f"Unknown error ⚠️\n{hblockquote(event.exception)}\nTry /start", disable_web_page_preview=True
+            )
+        except TelegramBadRequest:
+            await message.answer("Unknown error ⚠️\nTry /start", disable_web_page_preview=True)
         raise  # noqa: PLE0704
 
     for router in (
-        registration_router,
+        unauthenticated_router,
+        globals_router,
         printing_router,
-        printer_choice_router,
-        copies_setup_router,
-        layout_setup_router,
-        pages_setup_router,
-        sides_setup_router,
+        scanning_router,
+        print_printer_setup_router,
+        print_copies_setup_router,
+        print_layout_setup_router,
+        print_pages_setup_router,
+        print_sides_setup_router,
+        scan_scanner_setup_router,
+        scan_mode_setup_router,
+        scan_quality_setup_router,
+        scan_sides_setup_router,
     ):
         dispatcher.include_router(router)
     await dispatcher.start_polling(bot)

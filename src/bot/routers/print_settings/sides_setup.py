@@ -4,7 +4,6 @@ import aiogram.exceptions
 from aiogram import Bot, F, Router, html
 from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -19,40 +18,43 @@ from src.bot.routers.printing.printing_tools import MenuCallback, format_draft_m
 router = Router(name="sides_setup")
 
 
-class SetupSidesWork(StatesGroup):
-    set_sides = State()
-
-
 class SidesCallback(CallbackData, prefix="sides"):
     sides: Literal["one-sided", "two-sided-long-edge"]
 
 
-@router.callback_query(PrintWork.wait_for_acceptance, MenuCallback.filter(F.menu == "sides"))
-async def job_settings_sides(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
-    await state.set_state(SetupSidesWork.set_sides)
-    await callback.message.answer(
-        f"🌚🌝 Set {html.bold("paper sides")}",
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(text="One side", callback_data=SidesCallback(sides="one-sided").pack()),
-                    InlineKeyboardButton(
-                        text="Both sides", callback_data=SidesCallback(sides="two-sided-long-edge").pack()
-                    ),
-                ]
+async def start_sides_setup(callback_or_message: CallbackQuery | Message, state: FSMContext):
+    message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
+    await state.set_state(PrintWork.setup_sides)
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="One side", callback_data=SidesCallback(sides="one-sided").pack()),
+                InlineKeyboardButton(
+                    text="Both sides", callback_data=SidesCallback(sides="two-sided-long-edge").pack()
+                ),
             ]
-        ),
+        ]
+    )
+    await message.answer(
+        f"🌚🌝 Set {html.bold("paper sides")}",
+        reply_markup=markup,
     )
 
 
-@router.callback_query(SetupSidesWork.set_sides, SidesCallback.filter())
+@router.callback_query(PrintWork.settings_menu, MenuCallback.filter(F.menu == "sides"))
+async def job_settings_sides(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await start_sides_setup(callback, state)
+
+
+@router.callback_query(PrintWork.setup_sides, SidesCallback.filter())
 async def apply_settings_sides(callback: CallbackQuery, callback_data: SidesCallback, state: FSMContext, bot: Bot):
     await state.update_data(sides=callback_data.sides)
     data = await state.get_data()
-    printer = await api_client.get_printer(callback.from_user.id, data["printer"])
-    caption, markup = format_draft_message(data, printer)
+    assert "confirmation_message" in data
+    printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
     try:
+        caption, markup = format_draft_message(data, printer)
         await bot.edit_message_caption(
             caption=caption,
             chat_id=callback.message.chat.id,
@@ -63,4 +65,4 @@ async def apply_settings_sides(callback: CallbackQuery, callback_data: SidesCall
         pass
     if isinstance(callback.message, Message):
         await callback.message.delete()
-    await state.set_state(PrintWork.wait_for_acceptance)
+    await state.set_state(PrintWork.settings_menu)

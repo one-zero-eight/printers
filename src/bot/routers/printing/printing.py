@@ -7,8 +7,8 @@ import aiogram.exceptions
 import httpx
 from aiogram import Bot, F, Router, flags, html
 from aiogram.filters.callback_data import CallbackData
-from aiogram.filters.logic import or_f
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import default_state
 from aiogram.types import (
     BufferedInputFile,
     CallbackQuery,
@@ -20,7 +20,9 @@ from aiogram_media_group import media_group_handler
 
 from src.bot import shared_messages
 from src.bot.api import api_client
+from src.bot.interrupts import gracefully_interrupt_state
 from src.bot.logging_ import logger
+from src.bot.routers.print_settings.printer_setup import start_printer_setup
 from src.bot.routers.printing.printing_states import PrintWork
 from src.bot.routers.printing.printing_tools import (
     MenuCallback,
@@ -34,43 +36,17 @@ from src.modules.printing.entity_models import JobStateEnum, PrintingOptions
 router = Router(name="printing")
 
 
-@router.message(or_f(PrintWork.request_file, PrintWork.wait_for_acceptance, PrintWork.printing), F.media_group_id)
+@router.message(F.media_group_id)
 @media_group_handler
 async def album_handler(messages: list[Message]):
     # restrict any albums
     await messages[-1].answer("Multiple files are not supported yet, send one file at a time")
 
 
-@router.message(or_f(PrintWork.request_file, PrintWork.wait_for_acceptance, PrintWork.printing), F.document | F.photo)
+@router.message(F.document | F.photo)
 @flags.chat_action("upload_document")
-async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot):
-    current_state = await state.get_state()
-    data = await state.get_data()
-    if current_state == PrintWork.wait_for_acceptance:
-        await api_client.cancel_not_started_job(message.from_user.id, data["filename"])
-        try:
-            await bot.edit_message_caption(
-                caption=f"{html.bold('You\'ve cancelled this print work 🤷‍♀️')}",
-                chat_id=message.chat.id,
-                message_id=data["confirmation_message"],
-            )
-        except aiogram.exceptions.TelegramBadRequest:
-            pass
-        await state.set_state(PrintWork.request_file)
-    elif current_state == PrintWork.printing:
-        job_id = data["job_id"]
-        confirmation_message = data["confirmation_message"]
-        job_attributes = await api_client.check_job(message.from_user.id, job_id)
-        await api_client.cancel_job(message.from_user.id, job_id)
-
-        printer = await api_client.get_printer(message.from_user.id, data["printer"])
-        try:
-            caption = format_printing_message(data, printer, job_attributes, canceled_manually=True)
-            await bot.edit_message_caption(caption=caption, chat_id=message.chat.id, message_id=confirmation_message)
-        except (aiogram.exceptions.TelegramBadRequest, KeyError):
-            pass
-
-        await state.set_state(PrintWork.request_file)
+async def document_handler(message: Message, state: FSMContext, bot: Bot):
+    await gracefully_interrupt_state(message, state, bot)
 
     file_size = (
         message.document.file_size if message.document else message.photo[-1].file_size if message.photo else None
@@ -85,16 +61,16 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
     if not file_telegram_name:
         await message.answer("File name is not supported")
         return
+    if not file_telegram_identifier:
+        await message.answer("No file was sent")
+        return
     if file_size is None or file_size > 20 * 1024 * 1024:  # 20 MB
         await message.answer(f"File is too large\n\nMaximum size is {html.bold('20 MB')}")
         return
 
     status_msg = await message.answer("Downloading...")
     file = io.BytesIO()
-    if file_telegram_identifier:
-        await message.bot.download(file=file_telegram_identifier, destination=file)
-    else:
-        file = io.BytesIO(message.text.encode("utf8"))
+    await bot.download(file=file_telegram_identifier, destination=file)
 
     await status_msg.edit_text("Converting document to PDF...")
     try:
@@ -120,17 +96,17 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
         raise
 
     await status_msg.edit_text("Uploading...")
-    await state.update_data(pages=result.pages)
-    await state.update_data(filename=result.filename)
-    data = await state.get_data()
-    data["copies"] = "1"
-    data["page_ranges"] = None
-    data["sides"] = "one-sided"
-    data["number_up"] = "1"
-    if "printer" not in data:
-        printer = await api_client.get_printer(message.from_user.id)
-        data["printer"] = printer.cups_name
-    printer_status = await api_client.get_printer_status(message.from_user.id, data["printer"])
+    data = await state.update_data(
+        pages=result.pages,
+        filename=result.filename,
+        copies="1",
+        page_ranges=None,
+        sides="one-sided",
+        number_up="1",
+    )
+    assert "filename" in data
+    printer = await api_client.get_printer(message.from_user.id, data.get("printer"))
+    printer_status = await api_client.get_printer_status(message.from_user.id, printer.cups_name if printer else None)
     caption, markup = format_draft_message(data, printer_status)
     document = await api_client.get_prepared_document(message.from_user.id, data["filename"])
     input_file = BufferedInputFile(document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf")
@@ -138,14 +114,20 @@ async def print_work_confirmation(message: Message, state: FSMContext, bot: Bot)
     data["confirmation_message"] = msg.message_id
     await status_msg.delete()
     await state.update_data(data)
-    await state.set_state(PrintWork.wait_for_acceptance)
+    await state.set_state(PrintWork.settings_menu)
+
+    # Start printer choice if printer is not set
+    if data.get("printer") is None:
+        await start_printer_setup(message, state, bot)
 
 
-@router.callback_query(PrintWork.wait_for_acceptance, MenuCallback.filter(F.menu == "cancel"))
-async def print_work_preparation_cancel(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(PrintWork.settings_menu, MenuCallback.filter(F.menu == "cancel"))
+async def cancel_print_configuration_handler(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
-    await api_client.cancel_not_started_job(callback.from_user.id, (await state.get_data())["filename"])
+    data = await state.get_data()
+    assert "filename" in data
+    await api_client.cancel_not_started_job(callback.from_user.id, data["filename"])
     try:
         if isinstance(callback.message, Message):
             await callback.message.edit_caption(
@@ -153,7 +135,7 @@ async def print_work_preparation_cancel(callback: CallbackQuery, state: FSMConte
             )
     except aiogram.exceptions.TelegramBadRequest:
         pass
-    await shared_messages.send_something(callback, state)
+    await shared_messages.go_to_default_state(callback, state)
 
 
 class MenuDuringPrintingCallback(CallbackData, prefix="menu_during_printing"):
@@ -161,28 +143,34 @@ class MenuDuringPrintingCallback(CallbackData, prefix="menu_during_printing"):
     job_id: int
 
 
-@router.callback_query(PrintWork.wait_for_acceptance, MenuCallback.filter(F.menu == "confirm"))
+@router.callback_query(PrintWork.settings_menu, MenuCallback.filter(F.menu == "confirm"))
 @flags.chat_action("typing")
-async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot):
+async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
     await state.set_state(PrintWork.printing)
 
     # Get data and set up printing options
     data = await state.get_data()
+    assert "filename" in data
+    assert "printer" in data
+    assert "copies" in data
+    assert "page_ranges" in data
+    assert "number_up" in data
+    assert "sides" in data
+    assert "pages" in data
+
     printer = await api_client.get_printer(callback.from_user.id, data["printer"])
 
     if printer is None:
         await callback.answer("Printer not found")
         return
 
-    printing_options = PrintingOptions()
-    printing_options.copies = data["copies"]
-    if data["page_ranges"] is None:
-        printing_options.page_ranges = None
-    else:
-        printing_options.page_ranges = recalculate_page_ranges(data["page_ranges"], data["number_up"])
-    printing_options.sides = data["sides"]
-    printing_options.number_up = data["number_up"]
+    printing_options = PrintingOptions(
+        copies=data["copies"],
+        page_ranges=recalculate_page_ranges(data["page_ranges"], data["number_up"]) if data["page_ranges"] else None,
+        sides=data["sides"],
+        number_up=data["number_up"],
+    )
 
     # Start the print job
     job_id = await api_client.begin_job(
@@ -198,8 +186,7 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="✖️ Cancel",
-                    callback_data=MenuDuringPrintingCallback(menu="cancel", job_id=job_id).pack(),
+                    text="✖️ Cancel", callback_data=MenuDuringPrintingCallback(menu="cancel", job_id=job_id).pack()
                 )
             ]
         ]
@@ -225,7 +212,7 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
     while time.monotonic() - start_time < max_wait_time:
         iteration += 1
         # Exit if state changed (user clicked cancel)
-        if (await state.get_state()) == PrintWork.request_file.state:
+        if (await state.get_state()) == default_state:
             break
 
         # Get job attributes
@@ -256,7 +243,7 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
 
         # Handle ended job
         if is_job_finished:
-            await shared_messages.send_something(callback, state, job_attributes)
+            await shared_messages.go_to_default_state(callback, state)
             break
 
         # Sleep for one second before next check
@@ -272,18 +259,18 @@ async def print_work_print(callback: CallbackQuery, state: FSMContext, bot: Bot)
                 await callback.message.edit_caption(caption=caption)
         except aiogram.exceptions.TelegramBadRequest:
             pass
-        await shared_messages.send_something(callback, state, job_attributes)
+        await shared_messages.go_to_default_state(callback, state)
 
 
 @router.callback_query(PrintWork.printing, MenuDuringPrintingCallback.filter(F.menu == "cancel"))
-async def print_work_cancel(callback: CallbackQuery, callback_data: MenuDuringPrintingCallback, state: FSMContext):
+async def cancel_print_handler(callback: CallbackQuery, callback_data: MenuDuringPrintingCallback, state: FSMContext):
     job_id = callback_data.job_id
     data = await state.get_data()
     job_attributes = await api_client.check_job(callback.from_user.id, job_id)
     await api_client.cancel_job(callback.from_user.id, job_id)
-    await shared_messages.send_something(callback, state, job_attributes)
+    await shared_messages.go_to_default_state(callback, state)
 
-    printer = await api_client.get_printer(callback.from_user.id, data["printer"])
+    printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
     try:
         caption = format_printing_message(data, printer, job_attributes, canceled_manually=True)
         if isinstance(callback.message, Message):

@@ -1,30 +1,46 @@
 from aiogram import html
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery
+from aiogram.fsm.state import default_state
+from aiogram.types import CallbackQuery, Message
 
-from src.bot.api import api_client
-from src.bot.routers.printing.printing_states import PrintWork
-from src.modules.printing.entity_models import JobAttributes, JobStateEnum
+HELP_HTML_MESSAGE = """
+🖨 <b>@InnoPrintBot</b> is a bot for printing & scanning documents with <b>Innopolis University printers</b>.
+
+<b>Printing:</b>
+• Send a photo or a document to the bot, or forward a message from another chat.
+• It will be converted to PDF for printing.
+• Check required papers count, printer status (toner amount and paper count).
+
+<b>Scanning:</b>
+• Send /scan command.
+• Manual Scan mode — place documents on scanner glass and get PDF of one or more pages.
+• Auto Scan mode — use scanner's automatic feeder to scan a bunch of papers (supports both-sides scan).
+
+<b>Available printers & scanners:</b>
+• 🖨 <a href='https://innohassle.ru/maps'>Reading hall 1st floor</a> — general printer & scanner.
+• 🖨 <a href='https://innohassle.ru/maps'>Room 319</a> — students printer & scanner.
+
+🛡 Your files are processed on the IU servers and deleted right after printing or scanning.
+
+<i>Bot is not working? Contact @ArtemSBulgakov.
+Found any errors? Fill in the <a href='https://forms.gle/2vMmu4vSoVShvbMw6'>feedback form</a>.
+Want to contribute? Check out the <a href='https://github.com/one-zero-eight/printers'>GitHub repository</a>.
+Made by @one_zero_eight 💜</i>
+"""
 
 
-async def send_something(callback: CallbackQuery, state: FSMContext, job_attributes: JobAttributes | None = None):
-    await state.set_state(PrintWork.request_file)
-    note = None
-    if job_attributes:  # Previous job was printed
-        if job_attributes.job_state == JobStateEnum.canceled:
-            note = "❌ Job was canceled"
-        elif job_attributes.job_state == JobStateEnum.aborted:
-            note = "❌ Job was aborted"
-        elif job_attributes.job_state == JobStateEnum.completed:
-            note = "✅ Job was completed"
-    text = ""
-    if note:
-        text = f"{note}\n\n"
-    text += html.bold("🖨 We are ready to print!\n") + "Just send something to be printed"
+async def send_help(message: Message):
+    await message.answer(
+        HELP_HTML_MESSAGE,
+        disable_web_page_preview=True,
+    )
 
-    printer_cups_name = (await state.get_data())["printer"]
-    printer = await api_client.get_printer(callback.from_user.id, printer_cups_name)
-    if printer is not None:
-        text += f"\n\nCurrent printer is {html.bold(html.quote(printer.display_name))}"
 
-    await callback.message.answer(text)
+async def go_to_default_state(callback_or_message: CallbackQuery | Message, state: FSMContext):
+    await state.set_state(default_state)
+
+    message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
+    await message.answer(
+        html.bold("🖨 We are ready to print or scan!\n")
+        + "Just send something to be printed or send /scan to start scanning"
+    )

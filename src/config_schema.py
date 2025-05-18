@@ -23,6 +23,15 @@ class Printer(SettingBaseModel):
     "IP address of the printer for accessing IPP. Always specify a port."
 
 
+class Scanner(SettingBaseModel):
+    display_name: str
+    "Display name of the scanner, it will be shown to the user"
+    name: str
+    "Identifier of the scanner for the application"
+    escl: str = Field(examples=["https://192.168.1.1:9096/eSCL", "https://host.docker.internal:50001/eSCL"])
+    "ESCL base url"
+
+
 class Accounts(SettingBaseModel):
     """InNoHassle Accounts integration settings"""
 
@@ -59,6 +68,8 @@ class ApiSettings(SettingBaseModel):
     "CUPS password"
     printers_list: list[Printer]
     "List of printers"
+    scanners_list: list[Scanner]
+    "List of scanners"
     cors_allow_origin_regex: str = ".*"
     "Allowed origins for CORS: from which domains requests to the API are allowed. Specify as a regex: `https://.*.innohassle.ru`"
     accounts: Accounts

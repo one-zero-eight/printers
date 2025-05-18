@@ -1,12 +1,11 @@
 import math
-from collections.abc import Sequence
-from typing import Any, Literal, assert_never
+from typing import Literal, assert_never
 
 from aiogram import html
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from src.bot.fsm_data import FSMData
 from src.config_schema import Printer
 from src.modules.printing.entity_models import JobAttributes, JobStateEnum, PrinterStatus
 
@@ -16,8 +15,14 @@ class MenuCallback(CallbackData, prefix="menu"):
 
 
 def format_draft_message(
-    data: dict[str, Any], status_or_printer: PrinterStatus | Printer | None
+    data: FSMData, status_or_printer: PrinterStatus | Printer | None
 ) -> tuple[str, InlineKeyboardMarkup]:
+    assert "pages" in data
+    assert "page_ranges" in data
+    assert "number_up" in data
+    assert "sides" in data
+    assert "copies" in data
+
     caption = "Document is ready to be printed\n"
     total_papers = count_of_papers_to_print(
         pages=data["pages"],
@@ -32,14 +37,14 @@ def format_draft_message(
         status_or_printer = status.printer
         caption += html.bold(f"🖨 {format_printer_status(status)}\n")
     else:
-        caption += f"🖨 {status_or_printer.display_name}\n"
+        caption += f"🖨 {status_or_printer.display_name if status_or_printer else '—'}\n"
 
     def empty_inline_space_remainder(string):
         return string + " " * (100 - len(string)) + "."
 
     layout = {"1": "1x1", "4": "2x2", "9": "3x3"}.get(data["number_up"], None)
     sides = "One side" if data["sides"] == "one-sided" else "Both sides"
-    display_printer = empty_inline_space_remainder(f"✏️ {status_or_printer.display_name or "—"}")
+    display_printer = empty_inline_space_remainder(f"✏️ {status_or_printer.display_name if status_or_printer else '—'}")
     display_copies = empty_inline_space_remainder(f"✏️ {data['copies']}")
     display_page_ranges = empty_inline_space_remainder(
         f"✏️ {'all' if data['page_ranges'] is None else data['page_ranges']}"
@@ -79,7 +84,7 @@ def format_draft_message(
 
 
 def format_printing_message(
-    data: dict[str, Any],
+    data: FSMData,
     printer: Printer | None,
     job_attributes: JobAttributes | None = None,
     iteration: int = 0,
@@ -87,9 +92,15 @@ def format_printing_message(
     timed_out: bool = False,
 ) -> str:
     """Format the complete message including job info and status with throbber."""
+    assert "pages" in data
+    assert "page_ranges" in data
+    assert "number_up" in data
+    assert "sides" in data
+    assert "copies" in data
+
     LAYOUT = {"1": "1x1", "4": "2x2", "9": "3x3"}.get(data["number_up"], "1x1")
 
-    display_printer = f"{html.bold(html.quote(printer.display_name or "—"))}"
+    display_printer = html.bold(html.quote(printer.display_name if printer else "—"))
     display_copies = html.bold(html.quote(str(data["copies"])))
     if data["page_ranges"] is None:
         display_pages_ranges = html.bold("all")
@@ -98,8 +109,8 @@ def format_printing_message(
     display_pages = html.bold(html.quote(str(data["pages"])))
     display_sides = html.bold("One side") if data["sides"] == "one-sided" else html.bold("Two sides")
     display_layout = html.bold(html.quote(LAYOUT))
-    job_info = (
-        html.italic("Job\n")
+    caption = (
+        html.bold("🖨 Printing job:\n")
         + html.italic(f"⦁ Printer: {display_printer}\n")
         + html.italic(f"⦁ Copies: {display_copies}\n")
         + html.italic(f"⦁ Pages: {display_pages_ranges} (in document: {display_pages})\n")
@@ -109,12 +120,9 @@ def format_printing_message(
 
     max_severity = None
     worst_reason = None
-    SEVERITY_ORDER = {
-        "error": 0,
-        "warning": 1,
-        "report": 2,
-    }
-    for printer_state, severity in job_attributes.printer_state_reasons or []:
+    SEVERITY_ORDER = {"error": 0, "warning": 1, "report": 2}
+    printer_state_reasons = job_attributes.printer_state_reasons if job_attributes else []
+    for printer_state, severity in printer_state_reasons or []:
         if severity is None:
             continue
         if max_severity is None or SEVERITY_ORDER[severity] < SEVERITY_ORDER[max_severity]:
@@ -122,27 +130,26 @@ def format_printing_message(
             worst_reason = printer_state
     if job_attributes:
         if job_attributes.job_state == JobStateEnum.pending:
-            throbber = "⏳"
+            throbber = "⏳ Pending"
         elif job_attributes.job_state == JobStateEnum.pending_held:
-            throbber = "⏳⏸"
+            throbber = "⏳⏸ Pending held"
         elif job_attributes.job_state == JobStateEnum.processing:
-            throbber = "⤹⤿⤻⤺"[iteration % 4]
+            throbber = "⤹⤿⤻⤺"[iteration % 4] + " Processing"
         elif job_attributes.job_state == JobStateEnum.processing_stopped:
-            throbber = "⏸"
+            throbber = "⏸ Paused"
         elif job_attributes.job_state == JobStateEnum.canceled:
-            throbber = "❌"
+            throbber = "❌ Job was canceled"
         elif job_attributes.job_state == JobStateEnum.aborted:
-            throbber = "☠️"
+            throbber = "☠️ Job was aborted"
         elif job_attributes.job_state == JobStateEnum.completed:
-            throbber = "✅"
+            throbber = "✅ Completed"
         else:
             assert_never(job_attributes.job_state)
     else:
         throbber = ""
+    caption += f"{throbber}\n"
 
-    caption = f"{job_info} {throbber}"
     notification = None
-
     if max_severity == "error":
         notification = f"{html.bold('⛔️ Error, requires attention')} ({worst_reason})"
     elif max_severity == "warning":
@@ -151,18 +158,21 @@ def format_printing_message(
         notification = f"{html.bold('❕ Report, still printing')} ({worst_reason})"
 
     if notification is not None:
-        if job_attributes.printer_state_message and not job_attributes.printer_state_message.startswith("Sleep"):
+        if (
+            job_attributes
+            and job_attributes.printer_state_message
+            and not job_attributes.printer_state_message.startswith("Sleep")
+        ):
             notification += f":\n{html.italic(job_attributes.printer_state_message)}"
-        caption = f"{caption}\n\n{notification}"
+        caption += f"\n{notification}"
 
     if canceled_manually:
-        caption = (
-            f"{caption}\n\n{html.bold('Cancelled on demand')}"
-            "\nPress the button on printer panel if it is still printing."
+        caption += (
+            f"\n{html.bold('Cancelled on demand')}\n" "Press the button on printer panel if it is still printing."
         )
 
     if timed_out:
-        caption = f"{caption}\n\n{html.bold('Job is timed out ☠️')}"
+        caption += f"\n{html.bold('Job is timed out ☠️')}\n"
 
     return caption
 
@@ -182,27 +192,6 @@ def format_printer_status(status: PrinterStatus) -> str:
     elif status.paper_percentage is not None:
         show_text += f" 📄 {status.paper_percentage}%"
     return show_text
-
-
-def printers_keyboard(printers: Sequence[PrinterStatus | Printer]) -> InlineKeyboardMarkup:
-    keyboard = InlineKeyboardBuilder()
-
-    for status_or_printer in printers:
-        if isinstance(status_or_printer, PrinterStatus):
-            printer = status_or_printer.printer
-            show_text = format_printer_status(status_or_printer)
-        elif isinstance(status_or_printer, Printer):
-            printer = status_or_printer
-            show_text = printer.display_name
-        else:
-            assert_never(status_or_printer)
-        keyboard.row(
-            InlineKeyboardButton(
-                text=show_text,
-                callback_data=PrinterCallback(cups_name=printer.cups_name).pack(),
-            )
-        )
-    return keyboard.as_markup()
 
 
 def sub(integers) -> int:

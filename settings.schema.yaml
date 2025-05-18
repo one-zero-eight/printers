@@ -85,6 +85,12 @@ $defs:
           $ref: '#/$defs/Printer'
         title: Printers List
         type: array
+      scanners_list:
+        description: List of scanners
+        items:
+          $ref: '#/$defs/Scanner'
+        title: Scanners List
+        type: array
       cors_allow_origin_regex:
         default: .*
         description: 'Allowed origins for CORS: from which domains requests to the
@@ -101,6 +107,7 @@ $defs:
     required:
     - database_uri
     - printers_list
+    - scanners_list
     - accounts
     title: ApiSettings
     type: object
@@ -147,6 +154,30 @@ $defs:
     - cups_name
     - ipp
     title: Printer
+    type: object
+  Scanner:
+    additionalProperties: false
+    properties:
+      display_name:
+        description: Display name of the scanner, it will be shown to the user
+        title: Display Name
+        type: string
+      name:
+        description: Identifier of the scanner for the application
+        title: Name
+        type: string
+      escl:
+        description: ESCL base url
+        examples:
+        - https://192.168.1.1:9096/eSCL
+        - https://host.docker.internal:50001/eSCL
+        title: Escl
+        type: string
+    required:
+    - display_name
+    - name
+    - escl
+    title: Scanner
     type: object
 additionalProperties: false
 description: Settings for the application.

@@ -4,7 +4,6 @@ import aiogram.exceptions
 from aiogram import Bot, F, Router, html
 from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -19,19 +18,14 @@ from src.bot.routers.printing.printing_tools import MenuCallback, format_draft_m
 router = Router(name="layout_setup")
 
 
-class SetupLayoutWork(StatesGroup):
-    set_layout = State()
-
-
 class LayoutCallback(CallbackData, prefix="layout"):
     number_up: Literal["1", "4", "9"]
 
 
-@router.callback_query(PrintWork.wait_for_acceptance, MenuCallback.filter(F.menu == "layout"))
-async def job_settings_layout(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
-    await state.set_state(SetupLayoutWork.set_layout)
-    await callback.message.answer(
+async def start_layout_setup(callback_or_message: CallbackQuery | Message, state: FSMContext):
+    await state.set_state(PrintWork.setup_layout)
+    message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
+    await message.answer(
         f"📖 Set {html.bold("page layout")}\n\n"
         f"This option is about pages per page,\n2x2 will print four pages in one page",
         reply_markup=InlineKeyboardMarkup(
@@ -46,11 +40,18 @@ async def job_settings_layout(callback: CallbackQuery, state: FSMContext):
     )
 
 
-@router.callback_query(SetupLayoutWork.set_layout, LayoutCallback.filter())
+@router.callback_query(PrintWork.settings_menu, MenuCallback.filter(F.menu == "layout"))
+async def job_settings_layout(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await start_layout_setup(callback, state)
+
+
+@router.callback_query(PrintWork.setup_layout, LayoutCallback.filter())
 async def apply_settings_layout(callback: CallbackQuery, callback_data: LayoutCallback, state: FSMContext, bot: Bot):
     await state.update_data(number_up=callback_data.number_up)
     data = await state.get_data()
-    printer = await api_client.get_printer(callback.from_user.id, data["printer"])
+    assert "confirmation_message" in data
+    printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
     caption, markup = format_draft_message(data, printer)
     try:
         await bot.edit_message_caption(
@@ -63,4 +64,4 @@ async def apply_settings_layout(callback: CallbackQuery, callback_data: LayoutCa
         pass
     if isinstance(callback.message, Message):
         await callback.message.delete()
-    await state.set_state(PrintWork.wait_for_acceptance)
+    await state.set_state(PrintWork.settings_menu)
