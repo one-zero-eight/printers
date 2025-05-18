@@ -2,10 +2,12 @@ import asyncio
 
 from aiogram import Bot, Router
 from aiogram.types import (
+    CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     KeyboardButton,
     LoginUrl,
+    Message,
     ReplyKeyboardMarkup,
     User,
 )
@@ -19,7 +21,7 @@ I_HAVE_CONNECTED_TELEGRAM = "I have connected telegram to InNoHassle account."
 
 @router.message(~InnohassleUserFilter())
 @router.callback_query(~InnohassleUserFilter())
-async def any_not_registered_handler(bot: Bot, event_from_user: User):
+async def any_not_registered_handler(_callback_or_message: CallbackQuery | Message, bot: Bot, event_from_user: User):
     connect_kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
