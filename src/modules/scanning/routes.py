@@ -41,29 +41,29 @@ async def manual_start_scan(
     scanner = scanning_repository.get_scanner(scanner_name)
     if not scanner:
         raise HTTPException(404, "No such scanner")
-    document_url = await scanning_repository.start_scan_one(scanner, scanning_options)
-    if not document_url:
+    job_id = await scanning_repository.start_scan_one(scanner, scanning_options)
+    if not job_id:
         raise HTTPException(503, "Scanner is busy or not available")
-    return document_url
+    return job_id
 
 
 @router.post("/manual/cancel_scan")
 async def manual_cancel_scan(
     _innohassle_user_id: USER_AUTH,
     scanner_name: str,
-    document_url: str,
+    job_id: str,
 ) -> None:
     scanner = scanning_repository.get_scanner(scanner_name)
     if not scanner:
         raise HTTPException(404, "No such scanner")
-    await scanning_repository._delete_printer_scan_job(scanner, document_url)
+    await scanning_repository._delete_printer_scan_job(scanner, job_id)
 
 
 @router.post("/manual/wait_and_merge")
 async def manual_wait_and_merge(
     innohassle_user_id: USER_AUTH,
     scanner_name: str,
-    document_url: str,
+    job_id: str,
     prev_filename: str | None = None,
 ) -> str | None:
     if prev_filename and (innohassle_user_id, prev_filename) not in tempfiles:
@@ -73,7 +73,7 @@ async def manual_wait_and_merge(
     if not scanner:
         raise HTTPException(404, "No such scanner")
 
-    document = await scanning_repository.fetch_scan_one(scanner, document_url)
+    document = await scanning_repository.fetch_scan_one(scanner, job_id)
     if not document:
         raise HTTPException(503, "Scanner is busy or not available")
 
@@ -182,22 +182,22 @@ async def start_scan(
 async def delete_printer_scan_job(
     _innohassle_user_id: USER_AUTH,
     scanner_name: str,
-    document_url: str,
+    job_id: str,
 ):
     scanner = scanning_repository.get_scanner(scanner_name)
     if not scanner:
         raise HTTPException(404, "No such scanner")
-    await scanning_repository._delete_printer_scan_job(scanner, document_url)
+    await scanning_repository._delete_printer_scan_job(scanner, job_id)
 
 
 @router.get("/debug/fetch_scanned_document")
 async def fetch_scanned_document(
     _innohassle_user_id: USER_AUTH,
     scanner_name: str,
-    document_url: str,
+    job_id: str,
 ):
     scanner = scanning_repository.get_scanner(scanner_name)
     if not scanner:
         raise HTTPException(404, "No such scanner")
-    response = await scanning_repository._fetch_scanned_document(scanner, document_url)
+    response = await scanning_repository._fetch_scanned_document(scanner, job_id)
     return Response(response, media_type="application/pdf")

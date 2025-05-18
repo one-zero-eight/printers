@@ -125,7 +125,7 @@ async def start_manual_scan_handler(
     # Start scanning
     scanning_options = ScanningOptions(sides="false", quality=data["quality"])
     try:
-        document_url = await api_client.start_manual_scan(callback.from_user.id, scanner, scanning_options)
+        scan_job_id = await api_client.start_manual_scan(callback.from_user.id, scanner, scanning_options)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 503:
             await callback.message.answer("Error: Scanner is busy")
@@ -150,7 +150,7 @@ async def start_manual_scan_handler(
             await state.set_state(ScanWork.pause_menu)
             return
         raise
-    await state.update_data(document_url=document_url)
+    await state.update_data(scan_job_id=scan_job_id)
 
     try:
         text, markup = format_scanning_message(data, scanner, "scanning")
@@ -167,7 +167,7 @@ async def start_manual_scan_handler(
 
     # Wait for document to be scanned
     filename = await api_client.wait_and_merge_manual_scan(
-        callback.from_user.id, scanner, document_url, data.get("scan_filename")
+        callback.from_user.id, scanner, scan_job_id, data.get("scan_filename")
     )
     await state.update_data(scan_filename=filename)
 

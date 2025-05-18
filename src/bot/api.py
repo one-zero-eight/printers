@@ -140,16 +140,16 @@ class InNoHasslePrintAPI:
             response.raise_for_status()
             return response.json()
 
-    async def cancel_manual_scan(self, telegram_id: int, document_url: str) -> None:
-        params = {"document_url": document_url}
+    async def cancel_manual_scan(self, telegram_id: int, job_id: str) -> None:
+        params = {"job_id": job_id}
         async with self._create_client(telegram_id) as client:
             response = await client.post("/scan/manual/cancel_scan", params=params)
             response.raise_for_status()
 
     async def wait_and_merge_manual_scan(
-        self, telegram_id: int, scanner: Scanner, document_url: str, prev_filename: str | None
+        self, telegram_id: int, scanner: Scanner, job_id: str, prev_filename: str | None
     ) -> str:
-        params = {"scanner_name": scanner.name, "document_url": document_url}
+        params = {"scanner_name": scanner.name, "job_id": job_id}
         if prev_filename:
             params["prev_filename"] = prev_filename
         async with self._create_client(telegram_id) as client:

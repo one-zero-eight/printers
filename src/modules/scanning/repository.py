@@ -50,12 +50,12 @@ class ScanningRepository:
     async def scan_one_page(self, scanner: Scanner, options: ScanningOptions) -> bytes | None:
         """Scan using eSCL and return document as PDF bytes"""
         try:
-            document_url = await self.start_scan_one(scanner, options)
-            logger.info(f"Scanner {scanner.name} scanning: {document_url}")
-            if not document_url:
+            job_id = await self.start_scan_one(scanner, options)
+            logger.info(f"Scanner {scanner.name} scanning: {job_id}")
+            if not job_id:
                 return None
-            document = await self._fetch_scanned_document(scanner, document_url)
-            await self._delete_printer_scan_job(scanner, document_url)
+            document = await self._fetch_scanned_document(scanner, job_id)
+            await self._delete_printer_scan_job(scanner, job_id)
         except httpx.HTTPError as e:
             logger.info(f"Scanner {scanner.name} error: {e}")
             raise
@@ -80,25 +80,26 @@ class ScanningRepository:
                 logger.warning(f"Scanner {scanner.name} returned None document url")
                 return None
 
-            return document_url
+            job_id = document_url.rsplit("/ScanJobs/", 1)[-1]
+            return job_id
 
-    async def fetch_scan_one(self, scanner: Scanner, document_url: str) -> bytes | None:
-        document = await self._fetch_scanned_document(scanner, document_url)
-        await self._delete_printer_scan_job(scanner, document_url)
+    async def fetch_scan_one(self, scanner: Scanner, job_id: str) -> bytes | None:
+        document = await self._fetch_scanned_document(scanner, job_id)
+        await self._delete_printer_scan_job(scanner, job_id)
         return document
 
-    async def _fetch_scanned_document(self, scanner: Scanner, document_url: str) -> bytes:
+    async def _fetch_scanned_document(self, scanner: Scanner, job_id: str) -> bytes:
         async with httpx.AsyncClient(verify=False, timeout=60) as client:
-            logger.info(f"Scanner {scanner.name} fetching document {document_url}")
-            response = await client.get(document_url + "/NextDocument")
+            logger.info(f"Scanner {scanner.name} fetching document {job_id}")
+            response = await client.get(f"{scanner.escl}/ScanJobs/{job_id}/NextDocument")
             response.raise_for_status()
             return response.content  # PDF bytes
 
-    async def _delete_printer_scan_job(self, scanner: Scanner, document_url: str) -> None:
+    async def _delete_printer_scan_job(self, scanner: Scanner, job_id: str) -> None:
         """Delete the scan job from the printer, so nobody can download the file"""
         async with httpx.AsyncClient(verify=False) as client:
-            logger.info(f"Scanner {scanner.name} deleting document {document_url}")
-            response = await client.delete(document_url)
+            logger.info(f"Scanner {scanner.name} deleting document {job_id}")
+            response = await client.delete(f"{scanner.escl}/ScanJobs/{job_id}")
             response.raise_for_status()
 
 
