@@ -114,9 +114,10 @@ def format_scanning_message(
         text += html.italic("⏳ Starting...\n")
     elif status == "scanning":
         text += html.italic("⏩ Scanning...\n")
-        text += html.italic(
-            "Please place all your papers in the automatic feeder on top of the printer before scanning starts.\n"
-        )
+        if data.get("mode") == "auto":
+            text += html.italic(
+                "Please place all your papers in the automatic feeder on top of the printer before scanning starts.\n"
+            )
     elif status == "cancelled":
         text += html.italic("❌ Cancelled\n")
 
