@@ -10,10 +10,7 @@ from src.bot.logging_ import logger
 # noinspection PyMethodMayBeStatic
 class CustomDispatcher(Dispatcher):
     async def _send_dunno_message(self, bot: Bot, chat_id: int):
-        await bot.send_message(
-            chat_id,
-            "⚡️ I don't understand you. Please, use /start command or check /help.",
-        )
+        await bot.send_message(chat_id, "⚡️ I don't understand you. Please, use /start command.")
 
     async def _listen_update(self, update: Update, **kwargs) -> Any:
         res = await super()._listen_update(update, **kwargs)

@@ -133,7 +133,7 @@ async def start_scan_handler(
         scan_job_id = await api_client.start_manual_scan(callback.from_user.id, scanner, scanning_options)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 503:
-            await callback.message.answer("Error: Scanner is busy")
+            await callback.message.answer("Scanner is busy. Try pressing Cancel button on the device and try again.")
             try:
                 text, markup = format_scanning_paused_message(data, scanner)
                 if has_caption:

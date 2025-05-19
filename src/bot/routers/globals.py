@@ -2,7 +2,7 @@ from aiogram import F, Router, html
 from aiogram.filters import Command, or_f
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardRemove
 
 from src.bot.routers.unauthenticated import I_HAVE_CONNECTED_TELEGRAM
 from src.bot.shared_messages import go_to_default_state, send_help
@@ -16,8 +16,8 @@ async def command_start_handler(message: Message, state: FSMContext):
     await state.set_state(default_state)
 
     await message.answer(
-        f"👋 Hello, {html.bold(html.quote(message.from_user.first_name))}\n"
-        f"This is a bot for printing & scanning documents with {html.bold("Innopolis University printers!")}\n\n"
+        f"👋 Hello, {html.bold(html.quote(message.from_user.first_name))}\nWelcome and enjoy our service!",
+        reply_markup=ReplyKeyboardRemove(),
     )
     await send_help(message)
     await go_to_default_state(message, state)
