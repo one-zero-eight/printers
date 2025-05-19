@@ -7,7 +7,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.bot.api import api_client
-from src.bot.routers.scanning.scan_settings.scanner_setup import start_scanner_setup
 from src.bot.routers.scanning.scanning_states import ScanWork
 from src.bot.routers.scanning.scanning_tools import ScanConfigureCallback
 
@@ -65,8 +64,4 @@ async def apply_settings_mode(callback: CallbackQuery, callback_data: ScanModeCa
     except TelegramBadRequest:
         pass
 
-    if data.get("scanner") is not None:
-        await state.set_state(ScanWork.settings_menu)
-    else:
-        # Start scanner choice
-        await start_scanner_setup(callback, state)
+    await state.set_state(ScanWork.settings_menu)

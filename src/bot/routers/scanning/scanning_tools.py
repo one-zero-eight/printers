@@ -9,7 +9,7 @@ from src.config_schema import Scanner
 
 
 class ScanConfigureCallback(CallbackData, prefix="scan_menu"):
-    menu: Literal["mode", "scanner", "quality", "sides", "cancel", "start-auto", "start-manual"]
+    menu: Literal["mode", "scanner", "quality", "sides", "cancel", "start"]
 
 
 class ScanningCallback(CallbackData, prefix="scanning"):
@@ -37,12 +37,12 @@ def format_configure_message(data: FSMData, scanner: Scanner | None) -> tuple[st
     markup = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="Mode", callback_data=ScanConfigureCallback(menu="mode").pack()),
-                InlineKeyboardButton(text=display_mode, callback_data=ScanConfigureCallback(menu="mode").pack()),
-            ],
-            [
                 InlineKeyboardButton(text="Scanner", callback_data=ScanConfigureCallback(menu="scanner").pack()),
                 InlineKeyboardButton(text=display_scanner, callback_data=ScanConfigureCallback(menu="scanner").pack()),
+            ],
+            [
+                InlineKeyboardButton(text="Mode", callback_data=ScanConfigureCallback(menu="mode").pack()),
+                InlineKeyboardButton(text=display_mode, callback_data=ScanConfigureCallback(menu="mode").pack()),
             ],
             [
                 InlineKeyboardButton(text="Quality", callback_data=ScanConfigureCallback(menu="quality").pack()),
@@ -56,12 +56,7 @@ def format_configure_message(data: FSMData, scanner: Scanner | None) -> tuple[st
             else [],
             [
                 InlineKeyboardButton(text="✖️ Cancel", callback_data=ScanConfigureCallback(menu="cancel").pack()),
-                InlineKeyboardButton(
-                    text="✅ Scan",
-                    callback_data=ScanConfigureCallback(
-                        menu="start-auto" if data["mode"] == "auto" else "start-manual"
-                    ).pack(),
-                ),
+                InlineKeyboardButton(text="⏩ Scan", callback_data=ScanConfigureCallback(menu="start").pack()),
             ],
         ]
     )
@@ -118,7 +113,10 @@ def format_scanning_message(
     if status == "starting":
         text += html.italic("⏳ Starting...\n")
     elif status == "scanning":
-        text += html.italic("▶️ Scanning...\n")
+        text += html.italic("⏩ Scanning...\n")
+        text += html.italic(
+            "Please place all your papers in the automatic feeder on top of the printer before scanning starts.\n"
+        )
     elif status == "cancelled":
         text += html.italic("❌ Cancelled\n")
 
@@ -152,10 +150,11 @@ def format_scanning_paused_message(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="▶️ Scan one more page", callback_data=ScanningPausedCallback(menu="scan-more").pack()
+                    text="▶️ Scan one more page" if data.get("mode", "manual") == "manual" else "▶️ Scan more pages",
+                    callback_data=ScanningPausedCallback(menu="scan-more").pack(),
                 ),
                 InlineKeyboardButton(
-                    text="▶️ Scan new document", callback_data=ScanningPausedCallback(menu="scan-new").pack()
+                    text="⏩ Scan new document", callback_data=ScanningPausedCallback(menu="scan-new").pack()
                 ),
             ],
             [

@@ -48,10 +48,10 @@ async def command_scan_handler(message: Message, state: FSMContext, bot: Bot):
     data["scan_message_id"] = msg.message_id
     await state.update_data(data)
 
-    if data["mode"] is None:
-        await start_scan_mode_setup(message, state)
-    elif data.get("scanner") is None:
+    if data.get("scanner") is None:
         await start_scanner_setup(message, state)
+    elif data["mode"] is None:
+        await start_scan_mode_setup(message, state)
 
 
 @router.callback_query(ScanWork.settings_menu, ScanConfigureCallback.filter(F.menu == "cancel"))
@@ -61,11 +61,11 @@ async def scan_options_cancel(callback: CallbackQuery, state: FSMContext, bot: B
     await go_to_default_state(callback, state)
 
 
-@router.callback_query(ScanWork.settings_menu, ScanConfigureCallback.filter(F.menu == "start-manual"), StateFilter)
+@router.callback_query(ScanWork.settings_menu, ScanConfigureCallback.filter(F.menu == "start"), StateFilter)
 @router.callback_query(ScanWork.pause_menu, ScanningPausedCallback.filter(F.menu == "scan-more"))
 @router.callback_query(ScanWork.pause_menu, ScanningPausedCallback.filter(F.menu == "scan-new"))
 @flags.chat_action("upload_document")
-async def start_manual_scan_handler(
+async def start_scan_handler(
     callback: CallbackQuery, callback_data: ScanConfigureCallback | ScanningPausedCallback, state: FSMContext, bot: Bot
 ):
     await callback.answer()
@@ -101,6 +101,7 @@ async def start_manual_scan_handler(
     data = await state.get_data()
     assert "scan_message_id" in data
     assert "quality" in data
+    assert "mode" in data
 
     has_caption = data.get("scan_filename") is not None
 
@@ -123,7 +124,11 @@ async def start_manual_scan_handler(
         pass
 
     # Start scanning
-    scanning_options = ScanningOptions(sides="false", quality=data["quality"])
+    scanning_options = ScanningOptions(
+        sides="false" if data["mode"] == "manual" else data.get("scan_sides", "false"),
+        quality=data["quality"],
+        input_source="Platen" if data["mode"] == "manual" else "Adf",
+    )
     try:
         scan_job_id = await api_client.start_manual_scan(callback.from_user.id, scanner, scanning_options)
     except httpx.HTTPStatusError as e:
@@ -182,13 +187,6 @@ async def start_manual_scan_handler(
         reply_markup=markup,
     )
     await state.set_state(ScanWork.pause_menu)
-
-
-@router.callback_query(ScanWork.settings_menu, ScanConfigureCallback.filter(F.menu == "start-auto"))
-@flags.chat_action("upload_document")
-async def auto_scan_start(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    await callback.answer()
-    await callback.message.answer("Sorry, Auto Scan mode is not implemented yet.\nPlease use Manual Scan mode.")
 
 
 @router.callback_query(ScanWork.scanning, ScanningCallback.filter(F.menu == "cancel"))

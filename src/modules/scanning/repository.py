@@ -18,6 +18,7 @@ SCAN_OPTIONS_TEMPLATE = """
             <pwg:YOffset>0</pwg:YOffset>
         </pwg:ScanRegion>
     </pwg:ScanRegions>
+    <scan:InputSource>{input_source}</scan:InputSource>
     <scan:Duplex>{sides}</scan:Duplex>
     <scan:AdfOption>Duplex</scan:AdfOption>
     <scan:ColorMode>RGB24</scan:ColorMode>
@@ -68,7 +69,9 @@ class ScanningRepository:
             response = await client.post(
                 url=f"{scanner.escl}/ScanJobs",
                 headers={"Content-Type": "application/xml"},
-                content=SCAN_OPTIONS_TEMPLATE.format(sides=options.sides, quality=options.quality),
+                content=SCAN_OPTIONS_TEMPLATE.format(
+                    sides=options.sides, quality=options.quality, input_source=options.input_source
+                ),
             )
             if response.status_code == 503:
                 logger.info(f"Scanner {scanner.name} status code 503 (scanner is busy)")
@@ -89,7 +92,7 @@ class ScanningRepository:
         return document
 
     async def _fetch_scanned_document(self, scanner: Scanner, job_id: str) -> bytes:
-        async with httpx.AsyncClient(verify=False, timeout=60) as client:
+        async with httpx.AsyncClient(verify=False, timeout=httpx.Timeout(None)) as client:
             logger.info(f"Scanner {scanner.name} fetching document {job_id}")
             response = await client.get(f"{scanner.escl}/ScanJobs/{job_id}/NextDocument")
             response.raise_for_status()

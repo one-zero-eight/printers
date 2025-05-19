@@ -6,6 +6,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.bot.api import api_client
+from src.bot.routers.scanning.scan_settings.mode_setup import start_scan_mode_setup
 from src.bot.routers.scanning.scanning_states import ScanWork
 from src.bot.routers.scanning.scanning_tools import ScanConfigureCallback
 
@@ -50,7 +51,6 @@ async def apply_settings_scanner(callback: CallbackQuery, callback_data: Scanner
         return
 
     await state.update_data(scanner=scanner.name)
-    await state.set_state(ScanWork.settings_menu)
 
     data = await state.get_data()
     assert "scan_message_id" in data
@@ -64,3 +64,9 @@ async def apply_settings_scanner(callback: CallbackQuery, callback_data: Scanner
         pass
     if isinstance(callback.message, Message):
         await callback.message.delete()
+
+    if data.get("mode") is not None:
+        await state.set_state(ScanWork.settings_menu)
+    else:
+        # Start mode choice
+        await start_scan_mode_setup(callback, state)
