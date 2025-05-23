@@ -29,7 +29,6 @@ from src.bot.routers.printing.printing_tools import (
     count_of_papers_to_print,
     format_draft_message,
     format_printing_message,
-    recalculate_page_ranges,
 )
 from src.modules.printing.entity_models import JobStateEnum, PrintingOptions
 
@@ -170,9 +169,7 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
         copies=data["copies"],
         sides=data["sides"],
     )
-    printing_options.page_ranges = (
-        recalculate_page_ranges(data["page_ranges"], data["number_up"]) if data["page_ranges"] else None
-    )
+    printing_options.page_ranges = data["page_ranges"]
     printing_options.number_up = data["number_up"]
 
     # Start the print job
@@ -246,7 +243,8 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
 
         # Handle ended job
         if is_job_finished:
-            await shared_messages.go_to_default_state(callback, state)
+            if (await state.get_state()) == PrintWork.printing:
+                await shared_messages.go_to_default_state(callback, state)
             break
 
         # Sleep for one second before next check

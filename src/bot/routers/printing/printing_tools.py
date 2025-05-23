@@ -62,16 +62,16 @@ def format_draft_message(
                 InlineKeyboardButton(text=display_copies, callback_data=MenuCallback(menu="copies").pack()),
             ],
             [
+                InlineKeyboardButton(text="Layout", callback_data=MenuCallback(menu="layout").pack()),
+                InlineKeyboardButton(text=display_layout, callback_data=MenuCallback(menu="layout").pack()),
+            ],
+            [
                 InlineKeyboardButton(text="Pages", callback_data=MenuCallback(menu="pages").pack()),
                 InlineKeyboardButton(text=display_page_ranges, callback_data=MenuCallback(menu="pages").pack()),
             ],
             [
                 InlineKeyboardButton(text="Print on", callback_data=MenuCallback(menu="sides").pack()),
                 InlineKeyboardButton(text=display_sides, callback_data=MenuCallback(menu="sides").pack()),
-            ],
-            [
-                InlineKeyboardButton(text="Layout", callback_data=MenuCallback(menu="layout").pack()),
-                InlineKeyboardButton(text=display_layout, callback_data=MenuCallback(menu="layout").pack()),
             ],
             [
                 InlineKeyboardButton(text="✖️ Cancel", callback_data=MenuCallback(menu="cancel").pack()),
@@ -113,9 +113,9 @@ def format_printing_message(
         html.bold("🖨 Printing job:\n")
         + html.italic(f"⦁ Printer: {display_printer}\n")
         + html.italic(f"⦁ Copies: {display_copies}\n")
+        + html.italic(f"⦁ Layout: {display_layout}\n")
         + html.italic(f"⦁ Pages: {display_pages_ranges} (in document: {display_pages})\n")
         + html.italic(f"⦁ Print on: {display_sides}\n")
-        + html.italic(f"⦁ Layout: {display_layout}\n")
     )
 
     max_severity = None
@@ -239,12 +239,3 @@ def count_of_pages_to_print(pages: int, page_ranges: str | None) -> int:
             if 1 <= page <= pages:
                 total += 1
     return total
-
-
-def recalculate_page_ranges(page_range: str, number_up: str) -> str:
-    return ",".join(
-        map(
-            lambda elem: "-".join((str(math.ceil(int(el) / int(number_up)))) for el in elem.split("-")),
-            page_range.split(","),
-        )
-    )
