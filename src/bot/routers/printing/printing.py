@@ -167,10 +167,12 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
 
     printing_options = PrintingOptions(
         copies=data["copies"],
-        page_ranges=recalculate_page_ranges(data["page_ranges"], data["number_up"]) if data["page_ranges"] else None,
         sides=data["sides"],
-        number_up=data["number_up"],
     )
+    printing_options.page_ranges = (
+        recalculate_page_ranges(data["page_ranges"], data["number_up"]) if data["page_ranges"] else None
+    )
+    printing_options.number_up = data["number_up"]
 
     # Start the print job
     job_id = await api_client.begin_job(

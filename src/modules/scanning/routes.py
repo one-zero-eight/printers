@@ -5,7 +5,7 @@ from io import BytesIO
 from typing import Any
 
 import PyPDF2
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, HTTPException
 from starlette.responses import FileResponse, Response
 
 from src.api.dependencies import USER_AUTH
@@ -36,7 +36,7 @@ def get_file(filename: str, innohassle_user_id: USER_AUTH) -> FileResponse:
 async def manual_start_scan(
     _innohassle_user_id: USER_AUTH,
     scanner_name: str,
-    scanning_options: ScanningOptions,
+    scanning_options: ScanningOptions = Body(ScanningOptions(), embed=True),
 ) -> str | None:
     scanner = scanning_repository.get_scanner(scanner_name)
     if not scanner:
