@@ -114,6 +114,7 @@ async def actual_print(
     """
     Returns job identifier
     """
+    logger.info(f"Printing options: {printing_options}")
 
     if (innohassle_user_id, filename) in tempfiles:
         printer = printing_repository.get_printer(printer_cups_name)
