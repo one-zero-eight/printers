@@ -15,5 +15,5 @@ async def gracefully_interrupt_state(callback_or_message: CallbackQuery | Messag
     try:
         await gracefully_interrupt_printing_state(callback_or_message, state, bot)
         await gracefully_interrupt_scanning_state(callback_or_message, state, bot)
-    except (TelegramBadRequest, httpx.HTTPError) as e:
+    except (TelegramBadRequest, httpx.HTTPError, AssertionError) as e:
         logger.error(f"Error gracefully interrupting state: {e}")
