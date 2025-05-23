@@ -42,7 +42,7 @@ def format_draft_message(
     def empty_inline_space_remainder(string):
         return string + " " * (100 - len(string)) + "."
 
-    layout = {"1": "1x1", "4": "2x2", "9": "3x3"}.get(data["number_up"], None)
+    layout = {"1": "1x1", "2": "1x2", "4": "2x2", "6": "2x3", "9": "3x3", "16": "4x4"}.get(data["number_up"], None)
     sides = "One side" if data["sides"] == "one-sided" else "Both sides"
     display_printer = empty_inline_space_remainder(f"✏️ {status_or_printer.display_name if status_or_printer else '—'}")
     display_copies = empty_inline_space_remainder(f"✏️ {data['copies']}")
@@ -98,7 +98,7 @@ def format_printing_message(
     assert "sides" in data
     assert "copies" in data
 
-    LAYOUT = {"1": "1x1", "4": "2x2", "9": "3x3"}.get(data["number_up"], "1x1")
+    LAYOUT = {"1": "1x1", "2": "1x2", "4": "2x2", "6": "2x3", "9": "3x3", "16": "4x4"}.get(data["number_up"], "1x1")
 
     display_printer = html.bold(html.quote(printer.display_name if printer else "—"))
     display_copies = html.bold(html.quote(str(data["copies"])))

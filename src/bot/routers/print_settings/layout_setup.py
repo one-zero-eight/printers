@@ -19,7 +19,7 @@ router = Router(name="layout_setup")
 
 
 class LayoutCallback(CallbackData, prefix="layout"):
-    number_up: Literal["1", "4", "9"]
+    number_up: Literal["1", "2", "4", "6", "9", "16"]
 
 
 async def start_layout_setup(callback_or_message: CallbackQuery | Message, state: FSMContext):
@@ -27,14 +27,21 @@ async def start_layout_setup(callback_or_message: CallbackQuery | Message, state
     message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
     await message.answer(
         f"📖 Set {html.bold("page layout")}\n\n"
-        f"This option is about pages per page,\n2x2 will print four pages in one page",
+        f"This option is about document pages per printed page,\n2x3 will print 6 pages in one page",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(text="1x1", callback_data=LayoutCallback(number_up="1").pack()),
+                    InlineKeyboardButton(text="1x2", callback_data=LayoutCallback(number_up="2").pack()),
+                ],
+                [
                     InlineKeyboardButton(text="2x2", callback_data=LayoutCallback(number_up="4").pack()),
+                    InlineKeyboardButton(text="2x3", callback_data=LayoutCallback(number_up="6").pack()),
+                ],
+                [
                     InlineKeyboardButton(text="3x3", callback_data=LayoutCallback(number_up="9").pack()),
-                ]
+                    InlineKeyboardButton(text="4x4", callback_data=LayoutCallback(number_up="16").pack()),
+                ],
             ]
         ),
     )

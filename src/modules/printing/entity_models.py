@@ -15,7 +15,7 @@ class PrintingOptions(BaseSchema):
     "Which page ranges to print"
     sides: Literal["one-sided", "two-sided-long-edge"] | None = Field(default=None)
     "One-sided or double-sided printing"
-    number_up: Literal["1", "4", "9"] | None = Field(default=None, alias="number-up")
+    number_up: Literal["1", "2", "4", "6", "9", "16"] | None = Field(default=None, alias="number-up")
     "Count of pages on a list"
 
 

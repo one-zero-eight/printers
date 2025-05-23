@@ -9,7 +9,7 @@ class FSMData(TypedDict, total=False):
     copies: str
     page_ranges: str | None
     sides: Literal["one-sided", "two-sided-long-edge"]
-    number_up: Literal["1", "4", "9"]
+    number_up: Literal["1", "2", "4", "6", "9", "16"]
     confirmation_message: int
     job_id: int
 
