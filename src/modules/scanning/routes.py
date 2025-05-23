@@ -1,7 +1,7 @@
 import os
-import pathlib
 import tempfile
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 import PyPDF2
@@ -26,8 +26,8 @@ async def get_scanners(_innohassle_user_id: USER_AUTH) -> list[Scanner]:
 @router.get("/get_file", responses={404: {"description": "No such file"}})
 def get_file(filename: str, innohassle_user_id: USER_AUTH) -> FileResponse:
     if (innohassle_user_id, filename) in tempfiles:
-        short_name = pathlib.Path(filename).name
-        return FileResponse(filename, headers={"Content-Disposition": f"attachment; filename={short_name}"})
+        full_path = tempfiles[(innohassle_user_id, filename)].name
+        return FileResponse(full_path, headers={"Content-Disposition": f"attachment; filename={filename}"})
     else:
         raise HTTPException(404, "No such file")
 
@@ -91,25 +91,23 @@ async def manual_wait_and_merge(
         os.unlink(tempfile_f.name)
         tempfiles.pop((innohassle_user_id, prev_filename))
         # Add out_f to tempfiles
-        tempfiles[(innohassle_user_id, out_f.name)] = out_f
+        tempfiles[(innohassle_user_id, Path(out_f.name).name)] = out_f
         # Count pages in the resulting PDF
         reader = PyPDF2.PdfReader(out_f.name)
         page_count = len(reader.pages)
-        print(page_count)
         # Return new tempfile name and page count
-        return ScanningResult(filename=out_f.name, page_count=page_count)
+        return ScanningResult(filename=Path(out_f.name).name, page_count=page_count)
     else:
         # Save to tempfile
         with tempfile.NamedTemporaryFile(dir=settings.api.temp_dir, suffix=".pdf", delete=False) as out_f:
             out_f.write(document)
             out_f.flush()
-            tempfiles[(innohassle_user_id, out_f.name)] = out_f
+            tempfiles[(innohassle_user_id, Path(out_f.name).name)] = out_f
             # Count pages in the resulting PDF
             reader = PyPDF2.PdfReader(out_f.name)
             page_count = len(reader.pages)
-            print(page_count)
             # Return new tempfile name and page count
-            return ScanningResult(filename=out_f.name, page_count=page_count)
+            return ScanningResult(filename=Path(out_f.name).name, page_count=page_count)
 
 
 @router.post("/manual/remove_last_page")
@@ -127,7 +125,7 @@ async def manual_remove_last_page(
         for page in infile.pages[:-1]:
             outfile.add_page(page)
         outfile.write(out_f)
-        tempfiles[(innohassle_user_id, out_f.name)] = out_f
+        tempfiles[(innohassle_user_id, Path(out_f.name).name)] = out_f
     # Remove previous tempfile
     tempfile_f.close()
     os.unlink(tempfile_f.name)
@@ -136,7 +134,7 @@ async def manual_remove_last_page(
     reader = PyPDF2.PdfReader(out_f.name)
     page_count = len(reader.pages)
     # Return new tempfile name and page count
-    return ScanningResult(filename=out_f.name, page_count=page_count)
+    return ScanningResult(filename=Path(out_f.name).name, page_count=page_count)
 
 
 @router.get("/debug/get_scanner_capabilities")

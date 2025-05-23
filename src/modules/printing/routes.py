@@ -1,7 +1,7 @@
 import asyncio
 import os
-import pathlib
 import tempfile
+from pathlib import Path
 from typing import Any
 
 import PyPDF2
@@ -40,8 +40,8 @@ async def job_status(job_id: int, _innohassle_user_id: USER_AUTH) -> JobAttribut
 @router.get("/get_file", responses={404: {"description": "No such file"}})
 def get_file(filename: str, innohassle_user_id: USER_AUTH) -> FileResponse:
     if (innohassle_user_id, filename) in tempfiles:
-        short_name = pathlib.Path(filename).name
-        return FileResponse(filename, headers={"Content-Disposition": f"attachment; filename={short_name}"})
+        full_path = tempfiles[(innohassle_user_id, filename)].name
+        return FileResponse(full_path, headers={"Content-Disposition": f"attachment; filename={filename}"})
     else:
         raise HTTPException(404, "No such file")
 
@@ -86,8 +86,8 @@ async def prepare_printing(file: UploadFile, innohassle_user_id: USER_AUTH) -> P
     if ext == ".pdf":
         f = tempfile.NamedTemporaryFile(dir=settings.api.temp_dir, suffix=".pdf")
         f.write(await file.read())
-        tempfiles[(innohassle_user_id, f.name)] = f
-        return PreparePrintingResponse(filename=f.name, pages=len(PyPDF2.PdfReader(f).pages))
+        tempfiles[(innohassle_user_id, Path(f.name).name)] = f
+        return PreparePrintingResponse(filename=Path(f.name).name, pages=len(PyPDF2.PdfReader(f).pages))
     elif ext in [".doc", ".docx", ".png", ".txt", ".jpg", ".md", ".bmp", ".xlsx", ".xls", ".odt", ".ods"]:
         with (
             tempfile.NamedTemporaryFile(dir=settings.api.temp_dir, suffix=ext) as in_f,
@@ -98,8 +98,8 @@ async def prepare_printing(file: UploadFile, innohassle_user_id: USER_AUTH) -> P
             # Run conversion in a background thread
             await asyncio.to_thread(converting_repository.any2pdf, in_f.name, out_f.name)
             in_f.close()
-            tempfiles[(innohassle_user_id, out_f.name)] = out_f
-            return PreparePrintingResponse(filename=out_f.name, pages=len(PyPDF2.PdfReader(out_f).pages))
+            tempfiles[(innohassle_user_id, Path(out_f.name).name)] = out_f
+            return PreparePrintingResponse(filename=Path(out_f.name).name, pages=len(PyPDF2.PdfReader(out_f).pages))
     else:
         raise HTTPException(400, f"no support of the {ext} format")
 
@@ -120,9 +120,10 @@ async def actual_print(
         printer = printing_repository.get_printer(printer_cups_name)
         if not printer:
             raise HTTPException(400, "No such printer")
-        job_id = printing_repository.print_file(printer, filename, "job", printing_options)
+        full_path = tempfiles[(innohassle_user_id, filename)].name
+        job_id = printing_repository.print_file(printer, full_path, "job", printing_options)
         logger.info(f"Job {job_id} has started")
-        os.unlink(filename)
+        os.unlink(full_path)
         del tempfiles[(innohassle_user_id, filename)]
         return job_id
     else:
@@ -138,7 +139,8 @@ async def cancel_printing(job_id: int, _innohassle_user_id: USER_AUTH) -> None:
 @router.post("/cancel_preparation", responses={404: {"description": "No such file"}})
 async def cancel_preparation(filename: str, innohassle_user_id: USER_AUTH) -> None:
     if (innohassle_user_id, filename) in tempfiles:
-        os.unlink(filename)
+        full_path = tempfiles[(innohassle_user_id, filename)].name
+        os.unlink(full_path)
         del tempfiles[(innohassle_user_id, filename)]
     else:
         raise HTTPException(404, "No such file")
