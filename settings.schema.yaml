@@ -125,8 +125,28 @@ $defs:
         description: Print API url
         title: Api Url
         type: string
+      database_uri:
+        description: MongoDB database settings for FSM
+        examples:
+        - mongodb://mongoadmin:secret@localhost:27017/db?authSource=admin
+        - mongodb://mongoadmin:secret@db:27017/db?authSource=admin
+        format: password
+        title: Database Uri
+        type: string
+        writeOnly: true
+      database_db_name:
+        description: MongoDB database name for FSM
+        title: Database Db Name
+        type: string
+      database_collection_name:
+        default: aiogram_fsm
+        description: MongoDB collection name for FSM
+        title: Database Collection Name
+        type: string
     required:
     - bot_token
+    - database_uri
+    - database_db_name
     title: BotSettings
     type: object
   Printer:

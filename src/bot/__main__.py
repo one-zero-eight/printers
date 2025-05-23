@@ -1,9 +1,11 @@
 import asyncio
 
+import motor.motor_asyncio
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
+from aiogram.fsm.storage.mongo import MongoStorage
 from aiogram.types import ErrorEvent
 from aiogram.utils.markdown import hblockquote
 
@@ -27,7 +29,13 @@ from src.config import settings
 
 
 async def main() -> None:
-    dispatcher = CustomDispatcher()
+    mongo_client = motor.motor_asyncio.AsyncIOMotorClient(settings.bot.database_uri.get_secret_value())
+    storage = MongoStorage(
+        client=mongo_client,
+        db_name=settings.bot.database_db_name,
+        collection_name=settings.bot.database_collection_name,
+    )
+    dispatcher = CustomDispatcher(storage=storage)
     bot = Bot(token=settings.bot.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     log_all_events_middleware = LogAllEventsMiddleware()
     dispatcher.message.middleware(log_all_events_middleware)

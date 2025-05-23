@@ -83,6 +83,17 @@ class BotSettings(SettingBaseModel):
     "Token from BotFather"
     api_url: str = "http://127.0.0.1:8000"
     "Print API url"
+    database_uri: SecretStr = Field(
+        examples=[
+            "mongodb://mongoadmin:secret@localhost:27017/db?authSource=admin",
+            "mongodb://mongoadmin:secret@db:27017/db?authSource=admin",
+        ]
+    )
+    "MongoDB database settings for FSM"
+    database_db_name: str
+    "MongoDB database name for FSM"
+    database_collection_name: str = "aiogram_fsm"
+    "MongoDB collection name for FSM"
 
 
 class Settings(SettingBaseModel):
