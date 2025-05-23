@@ -25,4 +25,5 @@ class FSMData(TypedDict, total=False):
     scan_sides: Literal["false", "true"]
     scan_message_id: int
     scan_filename: str | None
+    scan_result_pages_count: int | None
     scan_job_id: str

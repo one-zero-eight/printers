@@ -90,6 +90,11 @@ def format_scanning_header(data: FSMData, scanner: Scanner | None) -> str:
     display_scanner = html.bold(html.quote(scanner.display_name if scanner else "—"))
     display_quality = html.bold(html.quote(f"{data['quality']} DPI"))
     display_sides = html.bold("One side" if data["scan_sides"] == "false" else "Both sides")
+    display_pages_count = (
+        html.bold(f"{data.get('scan_result_pages_count', '—')}")
+        if data.get("scan_result_pages_count") is not None
+        else None
+    )
 
     text = ""
     if data["mode"] == "manual":
@@ -102,6 +107,7 @@ def format_scanning_header(data: FSMData, scanner: Scanner | None) -> str:
         html.italic(f"⦁ Scanner: {display_scanner}\n")
         + html.italic(f"⦁ Quality: {display_quality}\n")
         + (html.italic(f"⦁ Scan from: {display_sides}\n") if data["mode"] == "auto" else "")
+        + (html.italic(f"⦁ Scanned pages: {display_pages_count}\n") if display_pages_count else "")
     )
     return text
 

@@ -11,7 +11,7 @@ from starlette.responses import FileResponse, Response
 from src.api.dependencies import USER_AUTH
 from src.config import settings
 from src.config_schema import Scanner
-from src.modules.scanning.entity_models import ScanningOptions
+from src.modules.scanning.entity_models import ScanningOptions, ScanningResult
 from src.modules.scanning.repository import scanning_repository
 
 router = APIRouter(prefix="/scan", tags=["Scan"])
@@ -65,7 +65,7 @@ async def manual_wait_and_merge(
     scanner_name: str,
     job_id: str,
     prev_filename: str | None = None,
-) -> str | None:
+) -> ScanningResult:
     if prev_filename and (innohassle_user_id, prev_filename) not in tempfiles:
         raise HTTPException(404, "No such tempfile")
 
@@ -92,23 +92,31 @@ async def manual_wait_and_merge(
         tempfiles.pop((innohassle_user_id, prev_filename))
         # Add out_f to tempfiles
         tempfiles[(innohassle_user_id, out_f.name)] = out_f
-        # Return new tempfile name
-        return out_f.name
+        # Count pages in the resulting PDF
+        reader = PyPDF2.PdfReader(out_f.name)
+        page_count = len(reader.pages)
+        print(page_count)
+        # Return new tempfile name and page count
+        return ScanningResult(filename=out_f.name, page_count=page_count)
     else:
         # Save to tempfile
         with tempfile.NamedTemporaryFile(dir=settings.api.temp_dir, suffix=".pdf", delete=False) as out_f:
             out_f.write(document)
             out_f.flush()
             tempfiles[(innohassle_user_id, out_f.name)] = out_f
-            # Return new tempfile name
-            return out_f.name
+            # Count pages in the resulting PDF
+            reader = PyPDF2.PdfReader(out_f.name)
+            page_count = len(reader.pages)
+            print(page_count)
+            # Return new tempfile name and page count
+            return ScanningResult(filename=out_f.name, page_count=page_count)
 
 
 @router.post("/manual/remove_last_page")
 async def manual_remove_last_page(
     filename: str,
     innohassle_user_id: USER_AUTH,
-) -> str:
+) -> ScanningResult:
     if (innohassle_user_id, filename) not in tempfiles:
         raise HTTPException(404, "No such tempfile")
 
@@ -124,7 +132,11 @@ async def manual_remove_last_page(
     tempfile_f.close()
     os.unlink(tempfile_f.name)
     tempfiles.pop((innohassle_user_id, filename))
-    return out_f.name
+    # Count pages in the resulting PDF
+    reader = PyPDF2.PdfReader(out_f.name)
+    page_count = len(reader.pages)
+    # Return new tempfile name and page count
+    return ScanningResult(filename=out_f.name, page_count=page_count)
 
 
 @router.get("/debug/get_scanner_capabilities")

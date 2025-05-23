@@ -72,7 +72,7 @@ async def start_scan_handler(
     await state.set_state(ScanWork.scanning)
 
     if isinstance(callback_data, ScanConfigureCallback):  # We are starting a new scan
-        await state.update_data(scan_filename=None)
+        data = await state.update_data(scan_filename=None, scan_result_pages_count=None)
 
     if isinstance(callback_data, ScanningPausedCallback) and callback_data.menu == "scan-new":
         # We are starting a new scan
@@ -93,9 +93,10 @@ async def start_scan_handler(
 
         text, markup = format_scanning_message(data, scanner, "starting")
         msg = await callback.message.answer(text, reply_markup=markup)
-        await state.update_data(
+        data = await state.update_data(
             scan_message_id=msg.message_id,
             scan_filename=None,
+            scan_result_pages_count=None,
         )
 
     data = await state.get_data()
@@ -155,7 +156,8 @@ async def start_scan_handler(
             await state.set_state(ScanWork.pause_menu)
             return
         raise
-    await state.update_data(scan_job_id=scan_job_id)
+    data = await state.update_data(scan_job_id=scan_job_id)
+    assert "scan_message_id" in data
 
     try:
         text, markup = format_scanning_message(data, scanner, "scanning")
@@ -171,13 +173,17 @@ async def start_scan_handler(
         pass
 
     # Wait for document to be scanned
-    filename = await api_client.wait_and_merge_manual_scan(
+    scanning_result = await api_client.wait_and_merge_manual_scan(
         callback.from_user.id, scanner, scan_job_id, data.get("scan_filename")
     )
-    await state.update_data(scan_filename=filename)
+    data = await state.update_data(
+        scan_filename=scanning_result.filename,
+        scan_result_pages_count=scanning_result.page_count,
+    )
+    assert "scan_message_id" in data
 
     # Update message
-    file = await api_client.get_scanned_file(callback.from_user.id, filename)
+    file = await api_client.get_scanned_file(callback.from_user.id, scanning_result.filename)
     input_file = BufferedInputFile(file, filename="scan.pdf")
     text, markup = format_scanning_paused_message(data, scanner)
     await bot.edit_message_media(
@@ -206,15 +212,19 @@ async def scanning_paused_remove_last_handler(
     data = await state.get_data()
     assert "scan_message_id" in data
 
-    filename = data.get("scan_filename")
-    if not filename:
+    prev_filename = data.get("scan_filename")
+    if not prev_filename:
         await callback.message.answer("No scanned files found")
         return
-    filename = await api_client.remove_last_page_manual_scan(callback.from_user.id, filename)
-    await state.update_data(scan_filename=filename)
+    scanning_result = await api_client.remove_last_page_manual_scan(callback.from_user.id, prev_filename)
+    data = await state.update_data(
+        scan_filename=scanning_result.filename,
+        scan_result_pages_count=scanning_result.page_count,
+    )
+    assert "scan_message_id" in data
 
     # Send file
-    file = await api_client.get_scanned_file(callback.from_user.id, filename)
+    file = await api_client.get_scanned_file(callback.from_user.id, scanning_result.filename)
     input_file = BufferedInputFile(file, filename="scan.pdf")
     scanner = await api_client.get_scanner(callback.from_user.id, data.get("scanner"))
     text, markup = format_scanning_paused_message(data, scanner)

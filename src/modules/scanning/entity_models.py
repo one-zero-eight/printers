@@ -10,3 +10,8 @@ class ScanningOptions(BaseModel):
     "Quality of the scan in DPI (200, 300, 400, 600)"
     input_source: Literal["Platen", "Adf"] = Field(default="Platen")
     "Input source to scan from (Platen for scanner glass, Adf for scanner automatic feeder)."
+
+
+class ScanningResult(BaseModel):
+    filename: str
+    page_count: int

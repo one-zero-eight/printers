@@ -7,7 +7,7 @@ from src.config import settings
 from src.config_schema import Printer, Scanner
 from src.modules.printing.entity_models import JobAttributes, PrinterStatus, PrintingOptions
 from src.modules.printing.routes import PreparePrintingResponse
-from src.modules.scanning.entity_models import ScanningOptions
+from src.modules.scanning.entity_models import ScanningOptions, ScanningResult
 
 
 class InNoHasslePrintAPI:
@@ -140,29 +140,29 @@ class InNoHasslePrintAPI:
             response.raise_for_status()
             return response.json()
 
-    async def cancel_manual_scan(self, telegram_id: int, job_id: str) -> None:
-        params = {"job_id": job_id}
+    async def cancel_manual_scan(self, telegram_id: int, scanner: Scanner, job_id: str) -> None:
+        params = {"scanner_name": scanner.name, "job_id": job_id}
         async with self._create_client(telegram_id) as client:
             response = await client.post("/scan/manual/cancel_scan", params=params)
             response.raise_for_status()
 
     async def wait_and_merge_manual_scan(
         self, telegram_id: int, scanner: Scanner, job_id: str, prev_filename: str | None
-    ) -> str:
+    ) -> ScanningResult:
         params = {"scanner_name": scanner.name, "job_id": job_id}
         if prev_filename:
             params["prev_filename"] = prev_filename
         async with self._create_client(telegram_id) as client:
             response = await client.post("/scan/manual/wait_and_merge", params=params, timeout=httpx.Timeout(None))
             response.raise_for_status()
-            return response.json()
+            return ScanningResult.model_validate(response.json())
 
-    async def remove_last_page_manual_scan(self, telegram_id: int, filename: str) -> str:
+    async def remove_last_page_manual_scan(self, telegram_id: int, filename: str) -> ScanningResult:
         params = {"filename": filename}
         async with self._create_client(telegram_id) as client:
             response = await client.post("/scan/manual/remove_last_page", params=params, timeout=httpx.Timeout(None))
             response.raise_for_status()
-            return response.json()
+            return ScanningResult.model_validate(response.json())
 
     async def get_scanned_file(self, telegram_id: int, filename: str) -> bytes:
         params = {"filename": filename}

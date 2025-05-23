@@ -45,8 +45,9 @@ async def gracefully_interrupt_scanning_state(
         assert "scan_job_id" in data
         assert "scanner" in data
         assert "scan_message_id" in data
-        await api_client.cancel_manual_scan(callback_or_message.from_user.id, data["scan_job_id"])
         scanner = await api_client.get_scanner(callback_or_message.from_user.id, data["scanner"])
+        if scanner:
+            await api_client.cancel_manual_scan(callback_or_message.from_user.id, scanner, data["scan_job_id"])
         text, markup = format_scanning_message(data, scanner, "cancelled")
         try:
             await bot.edit_message_text(
