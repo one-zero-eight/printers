@@ -82,7 +82,8 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
                 f"Unfortunately, we cannot print this file yet\n"
                 f"because of {html.bold(html.quote(e.response.json()["detail"]))}\n\n"
                 f"Please, send a file of a supported type:\n"
-                f"{html.blockquote(".doc\n.docx\n.png\n.txt\n.jpg\n.md\n.bmp\n.xlsx\n.xls\n.odt\n.ods")}"
+                f"{html.blockquote(".doc\n.docx\n.png\n.txt\n.jpg\n.md\n.bmp\n.xlsx\n.xls\n.odt\n.ods")}\n"
+                f"or convert the file to PDF manually and try again."
             )
             return
         if e.response.status_code == 500:
@@ -90,7 +91,7 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
                 "An error occurred while converting the file.\n"
                 "The file may be corrupted or too large,"
                 " or the server may be overloaded.\n"
-                "Please try again later."
+                "Please convert the file to PDF manually and try again."
             )
             return
         raise
