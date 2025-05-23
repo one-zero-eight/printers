@@ -209,8 +209,9 @@ def count_of_papers_to_print(pages: int, page_ranges: str | None, number_up: str
 
     sides_factor = 1 if sides == "one-sided" else 2
 
-    cnt = count_of_pages_to_print(pages, page_ranges)
-    cnt = math.ceil(cnt / int(number_up))
+    cnt = pages
+    cnt = math.ceil(cnt / int(number_up))  # CUPS applies number-up to the whole document
+    cnt = count_of_pages_to_print(cnt, page_ranges)  # Then CUPS takes page ranges
     cnt = math.ceil(cnt / sides_factor)
     cnt *= int(copies)
 
