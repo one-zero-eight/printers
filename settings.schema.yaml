@@ -143,6 +143,13 @@ $defs:
         description: MongoDB collection name for FSM
         title: Database Collection Name
         type: string
+      help_video_id:
+        anyOf:
+        - type: string
+        - type: 'null'
+        default: null
+        description: ID of the video to send as help message
+        title: Help Video Id
     required:
     - bot_token
     - database_uri

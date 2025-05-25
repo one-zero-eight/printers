@@ -1,7 +1,10 @@
 from aiogram import html
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 from aiogram.types import CallbackQuery, Message
+
+from src.config import settings
 
 MAX_WIDTH_FILLER = " " * 100 + "&#x200D;"
 
@@ -32,10 +35,15 @@ Made by @one_zero_eight 💜</i>
 
 
 async def send_help(message: Message):
-    await message.answer(
-        HELP_HTML_MESSAGE,
-        disable_web_page_preview=True,
-    )
+    video_id = settings.bot.help_video_id
+    if not video_id:
+        await message.answer(HELP_HTML_MESSAGE, disable_web_page_preview=True)
+        return
+
+    try:
+        await message.answer_video(video_id, caption=HELP_HTML_MESSAGE, disable_web_page_preview=True)
+    except TelegramBadRequest:
+        await message.answer(HELP_HTML_MESSAGE, disable_web_page_preview=True)
 
 
 async def go_to_default_state(callback_or_message: CallbackQuery | Message, state: FSMContext):

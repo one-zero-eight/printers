@@ -94,6 +94,8 @@ class BotSettings(SettingBaseModel):
     "MongoDB database name for FSM"
     database_collection_name: str = "aiogram_fsm"
     "MongoDB collection name for FSM"
+    help_video_id: str | None = None
+    "ID of the video to send as help message"
 
 
 class Settings(SettingBaseModel):
