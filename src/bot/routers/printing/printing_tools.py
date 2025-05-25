@@ -6,6 +6,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.bot.fsm_data import FSMData
+from src.bot.shared_messages import MAX_WIDTH_FILLER
 from src.config_schema import Printer
 from src.modules.printing.entity_models import JobAttributes, JobStateEnum, PrinterStatus
 
@@ -23,7 +24,7 @@ def format_draft_message(
     assert "sides" in data
     assert "copies" in data
 
-    caption = "Document is ready to be printed\n"
+    caption = f"Document is ready to be printed{MAX_WIDTH_FILLER}\n"
     total_papers = count_of_papers_to_print(
         pages=data["pages"],
         page_ranges=data["page_ranges"],
@@ -110,7 +111,7 @@ def format_printing_message(
     display_sides = html.bold("One side") if data["sides"] == "one-sided" else html.bold("Two sides")
     display_layout = html.bold(html.quote(LAYOUT))
     caption = (
-        html.bold("🖨 Printing job:\n")
+        html.bold(f"🖨 Printing job:{MAX_WIDTH_FILLER}\n")
         + html.italic(f"⦁ Printer: {display_printer}\n")
         + html.italic(f"⦁ Copies: {display_copies}\n")
         + html.italic(f"⦁ Layout: {display_layout}\n")

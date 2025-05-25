@@ -5,6 +5,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.bot.fsm_data import FSMData
+from src.bot.shared_messages import MAX_WIDTH_FILLER
 from src.config_schema import Scanner
 
 
@@ -64,17 +65,17 @@ def format_configure_message(data: FSMData, scanner: Scanner | None) -> tuple[st
     text = ""
     if data["mode"] == "manual":
         text += (
-            html.bold("📠 Manual Scan.\n")
+            html.bold(f"📠 Manual Scan.{MAX_WIDTH_FILLER}\n")
             + "Please place your document on the scanner glass.\n"
             + "You will be able to scan multiple pages one-by-one.\n\n"
         )
     elif data["mode"] == "auto":
         text += (
-            html.bold("📠 Auto Scan.\n")
+            html.bold(f"📠 Auto Scan.{MAX_WIDTH_FILLER}\n")
             + "Please place all your papers in the automatic feeder on top of the printer.\n\n"
         )
     else:
-        text += html.bold("📠 Scan.\n") + "Not ready. Configure the options first"
+        text += html.bold(f"📠 Scan.{MAX_WIDTH_FILLER}\n") + "Not ready. Configure the options first\n\n"
 
     if scanner:
         text += f"🖨 {scanner.display_name}\n"
@@ -98,11 +99,11 @@ def format_scanning_header(data: FSMData, scanner: Scanner | None) -> str:
 
     text = ""
     if data["mode"] == "manual":
-        text += html.bold("📠 Manual Scan:\n")
+        text += html.bold(f"📠 Manual Scan:{MAX_WIDTH_FILLER}\n")
     elif data["mode"] == "auto":
-        text += html.bold("📠 Auto Scan:\n")
+        text += html.bold(f"📠 Auto Scan:{MAX_WIDTH_FILLER}\n")
     else:
-        text += html.bold("📠 Scan:\n")
+        text += html.bold(f"📠 Scan:{MAX_WIDTH_FILLER}\n")
     text += (
         html.italic(f"⦁ Scanner: {display_scanner}\n")
         + html.italic(f"⦁ Quality: {display_quality}\n")
@@ -145,10 +146,9 @@ def format_scanning_paused_message(
 ) -> tuple[str, InlineKeyboardMarkup | None]:
     caption = format_scanning_header(data, scanner)
     if is_finished:
-        caption += html.italic("✅ Finished")
+        caption += html.italic("✅ Finished\n")
     else:
-        caption += html.italic("✅ Completed")
-    caption += " " * 100 + "&#x200D;"
+        caption += html.italic("✅ Completed\n")
 
     if is_finished:
         return caption, None

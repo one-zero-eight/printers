@@ -3,6 +3,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 from aiogram.types import CallbackQuery, Message
 
+MAX_WIDTH_FILLER = " " * 100 + "&#x200D;"
+
 HELP_HTML_MESSAGE = """
 🖨 <b>@InnoPrintBot</b> is a bot for printing & scanning documents with <b>Innopolis University printers</b>.
 
