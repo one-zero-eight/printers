@@ -22,8 +22,8 @@ HELP_HTML_MESSAGE = """
 • Auto Scan mode — use scanner's automatic feeder to scan a bunch of papers (supports both-sides scan).
 
 <b>Available printers & scanners:</b>
-• 🖨 <a href='https://innohassle.ru/maps'>Reading hall 1st floor</a> — general printer & scanner.
-• 🖨 <a href='https://innohassle.ru/maps'>Room 319</a> — students printer & scanner.
+• 🖨 <a href='https://innohassle.ru/maps?scene=university-floor-1&area=printer-1f'>Reading hall, 1 floor</a> — general printer & scanner.
+• 🖨 <a href='https://innohassle.ru/maps?scene=university-floor-3&area=printer-319'>Room 319</a> — students printer & scanner.
 
 🛡 Your files are processed on the IU servers and deleted right after printing or scanning.
 
