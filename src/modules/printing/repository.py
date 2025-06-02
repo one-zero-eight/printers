@@ -47,7 +47,7 @@ class PrintingRepository:
         return None
 
     async def get_printer_status(self, printer: Printer, use_cache: bool = True) -> PrinterStatus:
-        toner_percentage = self._fetch_toner_status(printer, use_cache)
+        toner_percentage = None  # self._fetch_toner_status(printer, use_cache) - shows 0 for our printers
         paper_percentage = None
 
         async with httpx.AsyncClient() as client:
