@@ -27,7 +27,10 @@ HELP_HTML_MESSAGE = """
 
 🛡 Your files are processed on the IU servers and deleted right after printing or scanning.
 
-<i>Bot is not working? Contact @ArtemSBulgakov.
+📣 All the paper for printing is provided to students by Student Union — <a href='https://t.me/suiu_news/543'>donate to SU Fund</a> to cover expenses.
+
+<i>Troubles with printers? Report to it@innopolis.ru.
+Bot is not working? Contact @ArtemSBulgakov.
 Found any errors? Fill in the <a href='https://forms.gle/2vMmu4vSoVShvbMw6'>feedback form</a>.
 Want to contribute? Check out the <a href='https://github.com/one-zero-eight/printers'>GitHub repository</a>.
 Made by @one_zero_eight 💜</i>
