@@ -174,7 +174,7 @@ class InNoHasslePrintAPI:
     async def delete_scanned_file(self, telegram_id: int, filename: str) -> None:
         params = {"filename": filename}
         async with self._create_client(telegram_id) as client:
-            response = await client.get("/scan/manual/delete_file", params=params)
+            response = await client.post("/scan/manual/delete_file", params=params)
             response.raise_for_status()
 
 
