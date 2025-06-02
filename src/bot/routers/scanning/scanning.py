@@ -243,6 +243,8 @@ async def scanning_paused_finish_handler(callback: CallbackQuery, state: FSMCont
 
     data = await state.get_data()
     assert "scan_message_id" in data
+    if "scan_filename" in data:
+        await api_client.delete_scanned_file(callback.from_user.id, data["scan_filename"])
 
     scanner = await api_client.get_scanner(callback.from_user.id, data.get("scanner"))
     try:

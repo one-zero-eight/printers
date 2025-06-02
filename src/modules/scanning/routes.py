@@ -130,6 +130,20 @@ async def manual_remove_last_page(
     return ScanningResult(filename=Path(out_f.name).name, page_count=len(PyPDF2.PdfReader(out_f.name).pages))
 
 
+@router.post("/manual/delete_file")
+async def manual_delete_file(
+    filename: str,
+    innohassle_user_id: USER_AUTH,
+):
+    if (innohassle_user_id, filename) not in tempfiles:
+        raise HTTPException(404, "No such tempfile")
+
+    tempfile_f = tempfiles[(innohassle_user_id, filename)]
+    tempfile_f.close()
+    os.unlink(tempfile_f.name)
+    tempfiles.pop((innohassle_user_id, filename))
+
+
 @router.get("/debug/get_scanner_capabilities")
 async def get_scanner_capabilities(
     _innohassle_user_id: USER_AUTH,
