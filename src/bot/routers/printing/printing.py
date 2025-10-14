@@ -67,27 +67,15 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
         await message.answer(f"File is too large\n\nMaximum size is {html.bold('20 MB')}")
         return
 
-    status_msg = await message.answer("Downloading...")
+    msg = await message.answer("Downloading...")
     file = io.BytesIO()
     await bot.download(file=file_telegram_identifier, destination=file)
-    await status_msg.delete()
 
-    data = await state.update_data(
-        pages=0,
-        filename=file_telegram_name,
-        copies="1",
-        page_ranges=None,
-        sides="one-sided",
-        number_up="1",
-    )
-    printer = await api_client.get_printer(message.from_user.id, data.get("printer"))
-    printer_status = await api_client.get_printer_status(message.from_user.id, printer.cups_name if printer else None)
-    caption, markup = format_draft_message(data, printer_status, status_of_document="Converting document to PDF...")
-
-    msg = await message.answer(text=caption, reply_markup=markup)
+    await msg.edit_text("Converting document to PDF...")
     try:
         result = await api_client.prepare_document(message.from_user.id, file_telegram_name, file)
     except httpx.HTTPStatusError as e:
+        await msg.delete()
         if e.response.status_code == 400:
             await message.answer(
                 f"Unfortunately, we cannot print this file yet\n"
@@ -106,22 +94,21 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
             )
             return
         raise
+
+    await msg.edit_text("Uploading...")
     data = await state.update_data(
         pages=result.pages,
         filename=result.filename,
+        copies="1",
+        page_ranges=None,
+        sides="one-sided",
+        number_up="1",
     )
-    await msg.edit_text(
-        text=format_draft_message(data, printer_status, status_of_document="Uploading...")[0], reply_markup=markup
-    )
-    document = await api_client.get_prepared_document(message.from_user.id, data["filename"])
-    input_file = BufferedInputFile(
-        document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf"
-    )  # to send document
-    await msg.edit_media(
-        aiogram.types.InputMediaDocument(media=input_file, caption=format_draft_message(data, printer_status)[0]),
-        reply_markup=markup,
-    )
-
+    assert "filename" in data
+    printer = await api_client.get_printer(message.from_user.id, data.get("printer"))
+    printer_status = await api_client.get_printer_status(message.from_user.id, printer.cups_name if printer else None)
+    caption, markup = format_draft_message(data, printer_status, status_of_document="Uploading...")
+    await msg.edit_text(text=caption, reply_markup=markup)
     data["confirmation_message"] = msg.message_id
     await state.update_data(data)
     await state.set_state(PrintWork.settings_menu)
@@ -129,6 +116,12 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
     # Start printer choice if printer is not set
     if data.get("printer") is None:
         await start_printer_setup(message, state, bot)
+
+    # Attach document to the message
+    document = await api_client.get_prepared_document(message.from_user.id, data["filename"])
+    input_file = BufferedInputFile(document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf")
+    caption, markup = format_draft_message(data, printer_status)
+    await msg.edit_media(aiogram.types.InputMediaDocument(media=input_file, caption=caption), reply_markup=markup)
 
 
 @router.callback_query(PrintWork.settings_menu, MenuCallback.filter(F.menu == "cancel"))
