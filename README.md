@@ -1,4 +1,4 @@
-#   Printers
+# Printers
 
 ## Table of contents
 
@@ -22,16 +22,16 @@ This is the FastAPI ASGI application.
 
 ### Set up for development
 
-1. Install [uv](https://docs.astral.sh/uv/), [Docker](https://docs.docker.com/engine/install/)
-2. Install project dependencies
+1. Install [uv](https://docs.astral.sh/uv/) and [Docker](https://docs.docker.com/engine/install/)
+2. Install dependencies:
    ```bash
    uv sync
    ```
-3. Start development server:
+3. Start development server (and read logs in the terminal):
    ```bash
    uv run -m src.api --reload
    ```
-   > Follow provided instructions if needed
+   > Follow the provided instructions (if needed).
 4. Open in the browser: http://localhost:8011
    > The api will be reloaded when you edit the code
 
@@ -63,19 +63,38 @@ We use Docker with Docker Compose plugin to run the service on servers.
 4. Change settings in the `settings.yaml` file according to your needs
    (check [settings.schema.yaml](settings.schema.yaml) for more info)
 5. Install Docker with Docker Compose
-6. Build a Docker image: `docker compose build --pull`
-7. Run the container: `docker compose up --detach`
-8. Check the logs: `docker compose logs -f`
+6. Run the containers: `docker compose up --build --wait`
+7. Check the logs: `docker compose logs -f`
 
-# How to update dependencies
 
-## Project dependencies
+## FAQ
 
-1. Run `uv show --outdated --all` to check for outdated dependencies
-2. Run `uv add <package>@latest` to add a new dependency if needed
+### Be up to date with the template!
 
-## Pre-commit hooks
+Check https://github.com/one-zero-eight/fastapi-template for updates once in a while.
 
-1. Run `uvx pre-commit autoupdate`
+### How to update dependencies
 
-Also, Dependabot will help you to keep your dependencies up-to-date, see [dependabot.yml](.github/dependabot.yml).
+1. Run `uv sync --upgrade` to update uv.lock file and install the latest versions of the dependencies.
+2. Run `uv tree --outdated --depth=1` will show what package versions are installed and what are the latest versions.
+3. Run `uv run pre-commit autoupdate`
+
+Also, Dependabot will help you to keep your dependencies up-to-date, see [dependabot.yaml](.github/dependabot.yaml).
+
+### How to dump the database
+
+1. Dump:
+   ```bash
+   docker compose exec db sh -c 'mongodump "mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@127.0.0.1:27017/db?authSource=admin" --db=db --out=dump/'
+   ```
+2. Restore:
+   ```bash
+   docker compose exec db sh -c 'mongorestore "mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@127.0.0.1:27017/db?authSource=admin" --drop /dump/db'
+   ```
+
+## Contributing
+
+We are open to contributions of any kind.
+You can help us with code, bugs, design, documentation, media, new ideas, etc.
+If you are interested in contributing, please read
+our [contribution guide](https://github.com/one-zero-eight/.github/blob/main/CONTRIBUTING.md).

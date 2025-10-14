@@ -649,7 +649,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8.3.5" }]
 mongo = [
-    { name = "beanie", specifier = ">=1.26.0,<2" },
+    { name = "beanie", specifier = ">=1.30.0,<2" },
     { name = "motor", specifier = ">=3.6.0,<4" },
 ]
 
