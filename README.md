@@ -24,7 +24,7 @@ This is the FastAPI ASGI application.
 
 1. Install [Python 3.12+](https://www.python.org/downloads/), [uv](https://docs.astral.sh/uv/),
    [Docker](https://docs.docker.com/engine/install/)
-2. Install project dependencies with [uv](https://docs.astral.sh/uv/cli/#install).
+2. Install project dependencies
    ```bash
    uv sync
    ```

@@ -135,6 +135,7 @@ $defs:
         type: string
         writeOnly: true
       database_db_name:
+        default: db
         description: MongoDB database name for FSM
         title: Database Db Name
         type: string
@@ -153,7 +154,6 @@ $defs:
     required:
     - bot_token
     - database_uri
-    - database_db_name
     title: BotSettings
     type: object
   Printer:

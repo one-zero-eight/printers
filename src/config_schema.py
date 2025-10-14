@@ -90,7 +90,7 @@ class BotSettings(SettingBaseModel):
         ]
     )
     "MongoDB database settings for FSM"
-    database_db_name: str
+    database_db_name: str = "db"
     "MongoDB database name for FSM"
     database_collection_name: str = "aiogram_fsm"
     "MongoDB collection name for FSM"

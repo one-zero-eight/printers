@@ -5,3 +5,9 @@ api:
   accounts:
     # get from https://api.innohassle.ru/accounts/v0/tokens/generate-service-token?sub=service-name&scopes=users&only_for_me=true
     api_jwt_token: null
+  printers_list: []
+  scanners_list: []
+bot:
+  database_uri: null # Database URL, f.e. "mongodb://mongoadmin:secret@localhost:27017/db?authSource=admin"
+  api_url: http://127.0.0.1:8000
+  bot_token: null
