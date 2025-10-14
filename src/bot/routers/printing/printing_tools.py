@@ -16,7 +16,7 @@ class MenuCallback(CallbackData, prefix="menu"):
 
 
 def format_draft_message(
-    data: FSMData, status_or_printer: PrinterStatus | Printer | None
+    data: FSMData, status_or_printer: PrinterStatus | Printer | None, status_of_document: str | None = None
 ) -> tuple[str, InlineKeyboardMarkup]:
     assert "pages" in data
     assert "page_ranges" in data
@@ -24,7 +24,10 @@ def format_draft_message(
     assert "sides" in data
     assert "copies" in data
 
-    caption = f"Document is ready to be printed{MAX_WIDTH_FILLER}\n"
+    if status_of_document:
+        caption = f"{status_of_document}{MAX_WIDTH_FILLER}\n"
+    else:
+        caption = f"Document is ready to be printed{MAX_WIDTH_FILLER}\n"
     total_papers = count_of_papers_to_print(
         pages=data["pages"],
         page_ranges=data["page_ranges"],
