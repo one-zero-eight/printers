@@ -13,6 +13,8 @@ jobs:
         with:
           enable-cache: true
           activate-environment: true
+      - name: 📦 Install libcups2-dev
+        run: sudo apt-get update && sudo apt-get install libcups2-dev
       - name: 📦 Install the project
         run: uv sync
       - name: 🧪 Run pre-commit
