@@ -3,14 +3,10 @@
 
 # Except code
 !/src/
-!/deploy/
+!/pyproject.toml
+!/uv.lock
 !/alembic/
 !/alembic.ini
-!/pyproject.toml
-!logging.yaml
-!uv.lock
 
 # And ignore cache files in the code
 __pycache__
-
-.venv

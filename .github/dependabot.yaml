@@ -6,8 +6,7 @@ updates:
     schedule:
       interval: "weekly"
     groups:
-      # TODO: switch to uv
-      poetry: # currently can't switch to uv because of https://github.com/dependabot/dependabot-core/issues/10478
+      python-dependencies:
         patterns:
           - "*"
 
@@ -16,9 +15,17 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      docker-dependencies:
+        patterns:
+          - "*"
 
   # Enable version updates for Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      actions-dependencies:
+        patterns:
+          - "*"

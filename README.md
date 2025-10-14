@@ -22,8 +22,7 @@ This is the FastAPI ASGI application.
 
 ### Set up for development
 
-1. Install [Python 3.12+](https://www.python.org/downloads/), [uv](https://docs.astral.sh/uv/),
-   [Docker](https://docs.docker.com/engine/install/)
+1. Install [uv](https://docs.astral.sh/uv/), [Docker](https://docs.docker.com/engine/install/)
 2. Install project dependencies
    ```bash
    uv sync
@@ -33,7 +32,7 @@ This is the FastAPI ASGI application.
    uv run -m src.api --reload
    ```
    > Follow provided instructions if needed
-4. Open in the browser: http://localhost:8000
+4. Open in the browser: http://localhost:8011
    > The api will be reloaded when you edit the code
 
 > [!IMPORTANT]

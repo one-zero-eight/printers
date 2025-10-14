@@ -1,40 +1,46 @@
+# This is a Docker Compose configuration for local use.
+
+# Run all services:
+# docker compose up --build --wait
+
 services:
   api:
     build: .
-    volumes:
-      - "./settings.yaml:/app/settings.yaml:ro" # Read-only settings file
+    restart: no
     depends_on:
       db:
         condition: service_healthy
-    restart: always
     ports:
-      - "8000:8000"
+      - "8011:8000"
+    volumes:
+      - "./settings.yaml:/app/settings.yaml:ro" # Read-only settings file
 
   db:
-    # See more: https://registry.hub.docker.com/_/mongo
+    # See more: https://hub.docker.com/_/mongo
     image: "mongo:8.0"
-    restart: always
-    volumes:
-      - "mongodb:/data/db"
+    restart: no
     ports:
       - "27017:27017"
+    volumes:
+      - "mongodb:/data/db"
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/db --quiet
-      interval: 5s
+      test: echo 'db.runCommand("ping").ok' | mongosh 127.0.0.1:27017/db --quiet
       timeout: 5s
-      retries: 5
+      start_period: 30s
+      interval: 1m
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-mongoadmin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-secret}
 
   unoserver:
     image: ghcr.io/unoconv/unoserver-docker
+    restart: no
     ports:
       - "2003:2003"
 
   cups:
     image: olbat/cupsd:2025-05-12
-    restart: always
+    restart: no
     volumes:
       - "cups:/etc/cups"
     profiles: [ cups ]

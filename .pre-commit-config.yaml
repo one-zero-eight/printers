@@ -13,7 +13,7 @@ default_stages:
 repos:
   # Fix some errors with Ruff
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.7.4
+    rev: v0.14.0
     hooks:
       - id: ruff
         args: [ --fix, --exit-zero ]
@@ -23,19 +23,17 @@ repos:
 
   # Lint Python files with Ruff
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.7.4
+    rev: v0.14.0
     hooks:
       - id: ruff
         name: "ruff: linting"
 
   # Check other files
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: typings/
       - id: end-of-file-fixer
-        exclude: typings/
       - id: check-added-large-files
 
   # Local linting
@@ -47,9 +45,3 @@ repos:
         entry: uv run ./scripts/generate_settings_schema.py
         pass_filenames: false
         files: ^src/config_schema.py$
-      - id: uv-check
-        name: uv lockfile check
-        entry: uv lock --check
-        language: system
-        pass_filenames: false
-        files: "pyproject.toml"
