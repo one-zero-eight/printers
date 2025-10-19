@@ -12,6 +12,7 @@ from aiogram.fsm.state import default_state
 from aiogram.types import (
     BufferedInputFile,
     CallbackQuery,
+    ContentType,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
@@ -79,9 +80,9 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
         if e.response.status_code == 400:
             await message.answer(
                 f"Unfortunately, we cannot print this file yet\n"
-                f"because of {html.bold(html.quote(e.response.json()["detail"]))}\n\n"
+                f"because of {html.bold(html.quote(e.response.json()['detail']))}\n\n"
                 f"Please, send a file of a supported type:\n"
-                f"{html.blockquote(".doc\n.docx\n.png\n.txt\n.jpg\n.md\n.bmp\n.xlsx\n.xls\n.odt\n.ods")}\n"
+                f"{html.blockquote('.doc\n.docx\n.png\n.txt\n.jpg\n.md\n.bmp\n.xlsx\n.xls\n.odt\n.ods')}\n"
                 f"or convert the file to PDF manually and try again."
             )
             return
@@ -134,7 +135,7 @@ async def cancel_print_configuration_handler(callback: CallbackQuery, state: FSM
     try:
         if isinstance(callback.message, Message):
             await callback.message.edit_caption(
-                caption=f"{callback.message.caption}\n\n{html.bold('You\'ve cancelled this print work 🤷‍♀️')}"
+                caption=f"{callback.message.caption}\n\n{html.bold("You've cancelled this print work 🤷‍♀️")}"
             )
     except aiogram.exceptions.TelegramBadRequest:
         pass
@@ -148,7 +149,7 @@ class MenuDuringPrintingCallback(CallbackData, prefix="menu_during_printing"):
 
 @router.callback_query(PrintWork.settings_menu, MenuCallback.filter(F.menu == "confirm"))
 @flags.chat_action("typing")
-async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: Bot):
+async def start_print_handler(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.set_state(PrintWork.printing)
 
@@ -281,3 +282,11 @@ async def cancel_print_handler(callback: CallbackQuery, callback_data: MenuDurin
             await callback.message.edit_caption(caption=caption)
     except (aiogram.exceptions.TelegramBadRequest, KeyError):
         pass
+
+
+@router.message(
+    F.reply_to_message,
+    lambda message: message.reply_to_message.content_type in (ContentType.DOCUMENT, ContentType.PHOTO),
+)
+async def any_message_handler(message: Message, state: FSMContext, bot: Bot):
+    await document_handler(message.reply_to_message, state, bot)
