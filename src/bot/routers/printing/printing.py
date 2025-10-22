@@ -105,12 +105,12 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
         sides="one-sided",
         number_up="1",
     )
+    data["confirmation_message"] = msg.message_id
     assert "filename" in data
     printer = await api_client.get_printer(message.from_user.id, data.get("printer"))
     printer_status = await api_client.get_printer_status(message.from_user.id, printer.cups_name if printer else None)
     caption, markup = format_draft_message(data, printer_status, status_of_document="Uploading...")
-    await msg.edit_text(text=caption, reply_markup=markup)
-    data["confirmation_message"] = msg.message_id
+    await msg.edit_text(text=caption, reply_markup=markup if data.get("printer") is not None else None)
     await state.update_data(data)
     await state.set_state(PrintWork.settings_menu)
 
@@ -122,7 +122,10 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
     document = await api_client.get_prepared_document(message.from_user.id, data["filename"])
     input_file = BufferedInputFile(document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf")
     caption, markup = format_draft_message(data, printer_status)
-    await msg.edit_media(aiogram.types.InputMediaDocument(media=input_file, caption=caption), reply_markup=markup)
+    await msg.edit_media(
+        aiogram.types.InputMediaDocument(media=input_file, caption=caption),
+        reply_markup=markup if data.get("printer") is not None else None,
+    )
 
 
 @router.callback_query(PrintWork.settings_menu, MenuCallback.filter(F.menu == "cancel"))

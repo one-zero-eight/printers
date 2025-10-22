@@ -26,12 +26,12 @@ async def start_scanner_setup(callback_or_message: CallbackQuery | Message, stat
         )
 
     message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
-    await message.answer(f"🖨📠 Choose {html.bold("the scanner")}", reply_markup=keyboard.as_markup())
+    await message.answer(f"🖨📠 Choose {html.bold('the scanner')}", reply_markup=keyboard.as_markup())
     # TODO: show scanner statuses
 
 
 @router.callback_query(ScanWork.settings_menu, ScanConfigureCallback.filter(F.menu == "scanner"))
-async def scan_options_scanner(callback: CallbackQuery, state: FSMContext, bot: Bot):
+async def scan_options_scanner(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await start_scanner_setup(callback, state)
 
@@ -58,7 +58,10 @@ async def apply_settings_scanner(callback: CallbackQuery, callback_data: Scanner
     text, markup = format_configure_message(data, scanner)
     try:
         await bot.edit_message_text(
-            text=text, chat_id=callback.message.chat.id, message_id=data["scan_message_id"], reply_markup=markup
+            text=text,
+            chat_id=callback.message.chat.id,
+            message_id=data["scan_message_id"],
+            reply_markup=markup if data.get("mode") is not None else None,
         )
     except TelegramBadRequest:
         pass

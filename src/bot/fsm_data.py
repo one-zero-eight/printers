@@ -18,7 +18,6 @@ class FSMData(TypedDict, total=False):
     job_settings_pages_message_id: int
 
     # Scanning
-    is_first_time_scan: bool
     mode: Literal["manual", "auto"] | None
     scanner: str
     quality: Literal["200", "300", "400", "600"]

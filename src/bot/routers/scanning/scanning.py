@@ -31,12 +31,11 @@ async def command_scan_handler(message: Message, state: FSMContext, bot: Bot):
 
     data = await state.get_data()
     data = await state.update_data(
-        mode=None if data.get("is_first_time_scan", True) else "manual",
-        is_first_time_scan=False,  # Next time we will use "manual" mode by default
         quality="300",
         scan_sides="false",
     )
-    assert "mode" in data
+    if "mode" not in data:
+        data["mode"] = None
     scanner = await api_client.get_scanner(message.from_user.id, data.get("scanner"))
     if scanner:
         data["scanner"] = scanner.name
@@ -44,7 +43,7 @@ async def command_scan_handler(message: Message, state: FSMContext, bot: Bot):
         data.pop("scanner", None)
 
     text, markup = format_configure_message(data, scanner)
-    msg = await message.answer(text, reply_markup=markup)
+    msg = await message.answer(text, reply_markup=markup if all((data.get("scanner"), data.get("mode"))) else None)
     data["scan_message_id"] = msg.message_id
     await state.update_data(data)
 
