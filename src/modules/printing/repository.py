@@ -102,8 +102,8 @@ class PrintingRepository:
             else:
                 logger.warning(f"Printer {printer.cups_name} unexpected response: {response}")
                 return True
-        except (httpx.ConnectError, httpx.ReadTimeout) as e:
-            logger.warning(f"Printer {printer.cups_name} is offline: {e}")
+        except (httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout) as e:
+            logger.warning(f"Printer {printer.cups_name} is offline: {type(e)}")
             return True
 
     async def _fetch_paper_status(

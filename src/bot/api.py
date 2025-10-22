@@ -20,6 +20,7 @@ class InNoHasslePrintAPI:
         client = httpx.AsyncClient(
             base_url=self.api_root_path,
             headers={"Authorization": f"Bearer {telegram_id}:{settings.bot.bot_token.get_secret_value()}"},
+            timeout=httpx.Timeout(None),
         )
         return client
 
