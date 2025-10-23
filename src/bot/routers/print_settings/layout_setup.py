@@ -13,7 +13,7 @@ from aiogram.types import (
 
 from src.bot.api import api_client
 from src.bot.routers.printing.printing_states import PrintWork
-from src.bot.routers.printing.printing_tools import MenuCallback, format_draft_message
+from src.bot.routers.printing.printing_tools import MenuCallback, discard_job_settings_message, format_draft_message
 
 router = Router(name="layout_setup")
 
@@ -56,8 +56,7 @@ async def job_settings_layout(callback: CallbackQuery, state: FSMContext, bot: B
 
 @router.callback_query(PrintWork.setup_layout, LayoutCallback.filter())
 async def apply_settings_layout(callback: CallbackQuery, callback_data: LayoutCallback, state: FSMContext, bot: Bot):
-    await state.update_data(number_up=callback_data.number_up)
-    data = await state.get_data()
+    data = await state.update_data(number_up=callback_data.number_up)
     assert "confirmation_message_id" in data
     printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
     caption, markup = format_draft_message(data, printer)
@@ -70,6 +69,5 @@ async def apply_settings_layout(callback: CallbackQuery, callback_data: LayoutCa
         )
     except aiogram.exceptions.TelegramBadRequest:
         pass
-    if isinstance(callback.message, Message):
-        await callback.message.delete()
+    await discard_job_settings_message(data, callback.message, state, bot)
     await state.set_state(PrintWork.settings_menu)

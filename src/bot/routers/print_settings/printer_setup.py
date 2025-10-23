@@ -20,6 +20,7 @@ from src.bot.routers.printing.printing_states import PrintWork
 from src.bot.routers.printing.printing_tools import (
     MenuCallback,
     PrinterCallback,
+    discard_job_settings_message,
     format_draft_message,
     format_printer_status,
 )
@@ -65,8 +66,7 @@ async def apply_settings_printer(callback: CallbackQuery, callback_data: Printer
         await callback.answer("Printer not found")
         return
 
-    await state.update_data(printer=printer.cups_name)
-    data = await state.get_data()
+    data = await state.update_data(printer=printer.cups_name)
     assert "printer" in data
     assert "confirmation_message_id" in data
     printer_status = await api_client.get_printer_status(callback.from_user.id, data.get("printer"))
@@ -80,8 +80,7 @@ async def apply_settings_printer(callback: CallbackQuery, callback_data: Printer
         )
     except aiogram.exceptions.TelegramBadRequest:
         pass
-    if isinstance(callback.message, Message):
-        await callback.message.delete()
+    await discard_job_settings_message(data, callback.message, state, bot)
     await state.set_state(PrintWork.settings_menu)
 
 

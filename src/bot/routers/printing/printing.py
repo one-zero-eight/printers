@@ -34,6 +34,7 @@ from src.bot.routers.printing.printing_tools import (
     MenuCallback,
     MenuDuringPrintingCallback,
     count_of_papers_to_print,
+    discard_job_settings_message,
     format_draft_message,
     format_printing_message,
 )
@@ -110,14 +111,13 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
         page_ranges=None,
         sides="one-sided",
         number_up="1",
+        confirmation_message_id=msg.message_id,
     )
-    data["confirmation_message_id"] = msg.message_id
     assert "filename" in data
     printer = await api_client.get_printer(message.from_user.id, data.get("printer"))
     printer_status = await api_client.get_printer_status(message.from_user.id, printer.cups_name if printer else None)
     caption, markup = format_draft_message(data, printer_status, status_of_document="Uploading...")
     await msg.edit_text(text=caption, reply_markup=markup if data.get("printer") is not None else None)
-    await state.update_data(data)
     await state.set_state(PrintWork.settings_menu)
 
     # Start printer choice if printer is not set
@@ -139,10 +139,7 @@ async def cancel_print_configuration_handler(callback: CallbackQuery, state: FSM
     await callback.answer()
 
     data = await state.get_data()
-
-    if "job_settings_message_id" in data:
-        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_message_id"])
-
+    await discard_job_settings_message(data, callback.message, state, bot)
     assert "filename" in data
     await api_client.cancel_not_started_job(callback.from_user.id, data["filename"])
     try:
@@ -163,9 +160,7 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
 
     # Get data and set up printing options
     data = await state.get_data()
-
-    if "job_settings_message_id" in data:
-        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_message_id"])
+    await discard_job_settings_message(data, callback.message, state, bot)
 
     assert "filename" in data
     assert "printer" in data
@@ -309,9 +304,7 @@ async def any_message_handler(message: Message, state: FSMContext, bot: Bot):
 )
 async def switch_settings_option(callback: CallbackQuery, callback_data: MenuCallback, state: FSMContext, bot: Bot):
     await callback.answer()
-    await bot.delete_message(
-        chat_id=callback.message.chat.id, message_id=(await state.get_data())["job_settings_message_id"]
-    )
+    await discard_job_settings_message(await state.get_data(), callback.message, state, bot)
     await [start_printer_setup, start_copies_setup, start_pages_setup, start_sides_setup, start_layout_setup][
         get_args(MenuCallback.model_fields["menu"].annotation).index(callback_data.menu)
     ](callback, state, bot)

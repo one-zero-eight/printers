@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from src.bot.api import api_client
 from src.bot.routers.printing.printing_states import PrintWork
-from src.bot.routers.printing.printing_tools import MenuCallback, format_draft_message
+from src.bot.routers.printing.printing_tools import MenuCallback, discard_job_settings_message, format_draft_message
 
 router = Router(name="copies_setup")
 
@@ -52,17 +52,10 @@ async def handle_copies_action(
     callback: CallbackQuery, callback_data: CopiesActionCallback, state: FSMContext, bot: Bot
 ):
     await callback.answer()
-
-    if callback_data.action == "cancel":
-        data = await state.get_data()
-        assert "job_settings_message_id" in data
-        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_message_id"])
-        await state.set_state(PrintWork.settings_menu)
-    elif callback_data.action == "reset":
-        await state.update_data(copies="1")
-        data = await state.get_data()
+    data = await state.get_data()
+    if callback_data.action == "reset":
+        data = await state.update_data(copies="1")
         assert "confirmation_message_id" in data
-        assert "job_settings_message_id" in data
         printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
         caption, markup = format_draft_message(data, printer)
         try:
@@ -74,35 +67,16 @@ async def handle_copies_action(
             )
         except aiogram.exceptions.TelegramBadRequest:
             pass
-        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_message_id"])
-        await state.set_state(PrintWork.settings_menu)
+    await discard_job_settings_message(data, callback.message, state, bot)
+    await state.set_state(PrintWork.settings_menu)
 
 
 @router.message(PrintWork.setup_copies)
 async def apply_settings_copies(message: Message, state: FSMContext, bot: Bot):
     await message.delete()
 
-    if message.text and message.text.isdigit():
-        copies = str(max(0, min(50, int(message.text))))
-        await state.update_data(copies=copies)
-        data = await state.get_data()
-        assert "confirmation_message_id" in data
-        assert "job_settings_message_id" in data
-        printer = await api_client.get_printer(message.from_user.id, data.get("printer"))
-        caption, markup = format_draft_message(data, printer)
-        try:
-            await bot.edit_message_caption(
-                caption=caption,
-                chat_id=message.chat.id,
-                message_id=data["confirmation_message_id"],
-                reply_markup=markup,
-            )
-        except aiogram.exceptions.TelegramBadRequest:
-            pass
-        await bot.delete_message(chat_id=message.chat.id, message_id=data["job_settings_message_id"])
-        await state.set_state(PrintWork.settings_menu)
-    else:
-        data = await state.get_data()
+    data = await state.get_data()
+    if not message.text or not message.text.isdigit():
         assert "job_settings_message_id" in data
         assert "copies" in data
         try:
@@ -115,3 +89,20 @@ async def apply_settings_copies(message: Message, state: FSMContext, bot: Bot):
             )
         except aiogram.exceptions.TelegramBadRequest:
             pass
+        return
+    copies = str(max(0, min(50, int(message.text))))
+    data = await state.update_data(copies=copies)
+    assert "confirmation_message_id" in data
+    printer = await api_client.get_printer(message.from_user.id, data.get("printer"))
+    caption, markup = format_draft_message(data, printer)
+    try:
+        await bot.edit_message_caption(
+            caption=caption,
+            chat_id=message.chat.id,
+            message_id=data["confirmation_message_id"],
+            reply_markup=markup,
+        )
+    except aiogram.exceptions.TelegramBadRequest:
+        pass
+    await discard_job_settings_message(data, message, state, bot)
+    await state.set_state(PrintWork.settings_menu)

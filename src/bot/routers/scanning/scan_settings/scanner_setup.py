@@ -6,6 +6,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.bot.api import api_client
+from src.bot.routers.printing.printing_tools import discard_job_settings_message
 from src.bot.routers.scanning.scan_settings.mode_setup import start_scan_mode_setup
 from src.bot.routers.scanning.scanning_states import ScanWork
 from src.bot.routers.scanning.scanning_tools import ScanConfigureCallback
@@ -52,9 +53,7 @@ async def apply_settings_scanner(callback: CallbackQuery, callback_data: Scanner
         await callback.message.answer("Scanner not found")
         return
 
-    await state.update_data(scanner=scanner.name)
-
-    data = await state.get_data()
+    data = await state.update_data(scanner=scanner.name)
     assert "confirmation_message_id" in data
     scanner = await api_client.get_scanner(callback.from_user.id, data.get("scanner"))
     text, markup = format_configure_message(data, scanner)
@@ -67,8 +66,7 @@ async def apply_settings_scanner(callback: CallbackQuery, callback_data: Scanner
         )
     except TelegramBadRequest:
         pass
-    if isinstance(callback.message, Message):
-        await callback.message.delete()
+    await discard_job_settings_message(data, callback.message, state, bot)
 
     if data.get("mode") is not None:
         await state.set_state(ScanWork.settings_menu)

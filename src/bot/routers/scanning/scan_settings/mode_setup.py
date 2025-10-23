@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.bot.api import api_client
+from src.bot.routers.printing.printing_tools import discard_job_settings_message
 from src.bot.routers.scanning.scanning_states import ScanWork
 from src.bot.routers.scanning.scanning_tools import ScanConfigureCallback
 
@@ -49,12 +50,7 @@ async def apply_settings_mode(callback: CallbackQuery, callback_data: ScanModeCa
     from src.bot.routers.scanning.scanning_tools import format_configure_message
 
     await callback.answer()
-    await state.update_data(mode=callback_data.mode)
-
-    if isinstance(callback.message, Message):
-        await callback.message.delete()
-
-    data = await state.get_data()
+    data = await state.update_data(mode=callback_data.mode)
     assert "confirmation_message_id" in data
     scanner = await api_client.get_scanner(callback.from_user.id, data.get("scanner"))
     text, markup = format_configure_message(data, scanner)
@@ -64,5 +60,5 @@ async def apply_settings_mode(callback: CallbackQuery, callback_data: ScanModeCa
         )
     except TelegramBadRequest:
         pass
-
     await state.set_state(ScanWork.settings_menu)
+    await discard_job_settings_message(data, callback.message, state, bot)

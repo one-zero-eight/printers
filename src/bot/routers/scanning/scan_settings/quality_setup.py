@@ -8,6 +8,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.bot.api import api_client
+from src.bot.routers.printing.printing_tools import discard_job_settings_message
 from src.bot.routers.scanning.scanning_states import ScanWork
 from src.bot.routers.scanning.scanning_tools import ScanConfigureCallback
 
@@ -55,10 +56,7 @@ async def apply_settings_quality(
     from src.bot.routers.scanning.scanning_tools import format_configure_message
 
     await callback.answer()
-    await state.update_data(quality=callback_data.quality)
-    await state.set_state(ScanWork.settings_menu)
-
-    data = await state.get_data()
+    data = await state.update_data(quality=callback_data.quality)
     assert "confirmation_message_id" in data
     scanner = await api_client.get_scanner(callback.from_user.id, data.get("scanner"))
     text, markup = format_configure_message(data, scanner)
@@ -68,5 +66,5 @@ async def apply_settings_quality(
         )
     except TelegramBadRequest:
         pass
-    if isinstance(callback.message, Message):
-        await callback.message.delete()
+    await discard_job_settings_message(data, callback.message, state, bot)
+    await state.set_state(ScanWork.settings_menu)

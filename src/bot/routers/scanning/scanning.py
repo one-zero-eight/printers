@@ -10,6 +10,7 @@ from aiogram.types import BufferedInputFile, CallbackQuery, InputMediaDocument, 
 from src.bot.api import api_client
 from src.bot.entry_filters import CallbackFromConfirmationMessageFilter
 from src.bot.interrupts import gracefully_interrupt_state
+from src.bot.routers.printing.printing_tools import discard_job_settings_message
 from src.bot.routers.scanning.scan_settings.mode_setup import start_scan_mode_setup
 from src.bot.routers.scanning.scan_settings.quality_setup import start_quality_setup
 from src.bot.routers.scanning.scan_settings.scanner_setup import start_scanner_setup
@@ -48,8 +49,7 @@ async def command_scan_handler(message: Message, state: FSMContext, bot: Bot):
 
     text, markup = format_configure_message(data, scanner)
     msg = await message.answer(text, reply_markup=markup if all((data.get("scanner"), data.get("mode"))) else None)
-    data["confirmation_message_id"] = msg.message_id
-    await state.update_data(data)
+    data = await state.update_data(confirmation_message_id=msg.message_id)
 
     if data.get("scanner") is None:
         await start_scanner_setup(message, state, bot)
@@ -61,10 +61,7 @@ async def command_scan_handler(message: Message, state: FSMContext, bot: Bot):
 async def scan_options_cancel(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
     data = await state.get_data()
-
-    if "job_settings_message_id" in data:
-        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_message_id"])
-
+    await discard_job_settings_message(data, callback.message, state, bot)
     await gracefully_interrupt_scanning_state(callback, state, bot)
     await go_to_default_state(callback, state)
 
@@ -81,9 +78,7 @@ async def start_scan_handler(
     await callback.answer()
     await state.set_state(ScanWork.scanning)
     data = await state.get_data()
-
-    if "job_settings_message_id" in data:
-        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_message_id"])
+    await discard_job_settings_message(data, callback.message, state, bot)
 
     if isinstance(callback_data, ScanConfigureCallback):  # We are starting a new scan
         await state.update_data(scan_filename=None, scan_result_pages_count=None)
@@ -292,9 +287,7 @@ async def switch_settings_option(
     callback: CallbackQuery, callback_data: ScanConfigureCallback, state: FSMContext, bot: Bot
 ):
     await callback.answer()
-    await bot.delete_message(
-        chat_id=callback.message.chat.id, message_id=(await state.get_data())["job_settings_message_id"]
-    )
+    await discard_job_settings_message(await state.get_data(), callback.message, state, bot)
     await [start_scan_mode_setup, start_scanner_setup, start_quality_setup, start_scan_sides_setup][
         get_args(ScanConfigureCallback.model_fields["menu"].annotation).index(callback_data.menu)
     ](callback, state, bot)

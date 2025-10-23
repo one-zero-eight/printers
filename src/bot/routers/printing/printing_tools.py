@@ -1,9 +1,10 @@
 import math
 from typing import Literal, assert_never
 
-from aiogram import html
+from aiogram import Bot, html
 from aiogram.filters.callback_data import CallbackData
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.fsm.context import FSMContext
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.bot.fsm_data import FSMData
 from src.bot.shared_messages import MAX_WIDTH_FILLER
@@ -247,3 +248,9 @@ def count_of_pages_to_print(pages: int, page_ranges: str | None) -> int:
             if 1 <= page <= pages:
                 total += 1
     return total
+
+
+async def discard_job_settings_message(data: FSMData, message: Message, state: FSMContext, bot: Bot):
+    if data.get("job_settings_message_id", None):
+        await bot.delete_message(chat_id=message.chat.id, message_id=data["job_settings_message_id"])
+        await state.update_data(job_settings_message_id=None)

@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from src.bot.api import api_client
 from src.bot.routers.printing.printing_states import PrintWork
-from src.bot.routers.printing.printing_tools import MenuCallback, format_draft_message
+from src.bot.routers.printing.printing_tools import MenuCallback, discard_job_settings_message, format_draft_message
 
 router = Router(name="pages_setup")
 
@@ -95,16 +95,12 @@ def sub(integers: map) -> int:
 async def handle_pages_action(callback: CallbackQuery, callback_data: PagesActionCallback, state: FSMContext, bot: Bot):
     await callback.answer()
 
-    if callback_data.action == "cancel":
-        data = await state.get_data()
-        assert "job_settings_message_id" in data
-        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_message_id"])
-        await state.set_state(PrintWork.settings_menu)
-    elif callback_data.action == "reset":
-        await state.update_data(page_ranges=None)
-        data = await state.get_data()
+    data = await state.get_data()
+    await discard_job_settings_message(data, callback.message, state, bot)
+    await state.set_state(PrintWork.settings_menu)
+    if callback_data.action == "reset":
+        data = await state.update_data(page_ranges=None)
         assert "confirmation_message_id" in data
-        assert "job_settings_message_id" in data
         printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
         caption, markup = format_draft_message(data, printer)
         try:
@@ -116,8 +112,6 @@ async def handle_pages_action(callback: CallbackQuery, callback_data: PagesActio
             )
         except TelegramBadRequest:
             pass
-        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_message_id"])
-        await state.set_state(PrintWork.settings_menu)
 
 
 @router.message(PrintWork.setup_pages)
@@ -161,7 +155,6 @@ async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
     await state.update_data(data)
 
     assert "confirmation_message_id" in data
-    assert "job_settings_message_id" in data
     printer = await api_client.get_printer(message.from_user.id, data.get("printer"))
     caption, markup = format_draft_message(data, printer)
     try:
@@ -173,5 +166,5 @@ async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
         )
     except TelegramBadRequest:
         pass
-    await bot.delete_message(chat_id=message.chat.id, message_id=data["job_settings_message_id"])
+    await discard_job_settings_message(data, message, state, bot)
     await state.set_state(PrintWork.settings_menu)
