@@ -22,11 +22,11 @@ class LayoutCallback(CallbackData, prefix="layout"):
     number_up: Literal["1", "2", "4", "6", "9", "16"]
 
 
-async def start_layout_setup(callback_or_message: CallbackQuery | Message, state: FSMContext):
+async def start_layout_setup(callback_or_message: CallbackQuery | Message, state: FSMContext, bot: Bot):
     await state.set_state(PrintWork.setup_layout)
     message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
-    await message.answer(
-        f"📖 Set {html.bold("page layout")}\n\n"
+    msg = await message.answer(
+        f"📖 Set {html.bold('page layout')}\n\n"
         f"This option is about document pages per printed page,\n2x3 will print 6 pages in one page",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
@@ -45,26 +45,27 @@ async def start_layout_setup(callback_or_message: CallbackQuery | Message, state
             ]
         ),
     )
+    await state.update_data(job_settings_message_id=msg.message_id)
 
 
 @router.callback_query(PrintWork.settings_menu, MenuCallback.filter(F.menu == "layout"))
-async def job_settings_layout(callback: CallbackQuery, state: FSMContext):
+async def job_settings_layout(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
-    await start_layout_setup(callback, state)
+    await start_layout_setup(callback, state, bot)
 
 
 @router.callback_query(PrintWork.setup_layout, LayoutCallback.filter())
 async def apply_settings_layout(callback: CallbackQuery, callback_data: LayoutCallback, state: FSMContext, bot: Bot):
     await state.update_data(number_up=callback_data.number_up)
     data = await state.get_data()
-    assert "confirmation_message" in data
+    assert "confirmation_message_id" in data
     printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
     caption, markup = format_draft_message(data, printer)
     try:
         await bot.edit_message_caption(
             caption=caption,
             chat_id=callback.message.chat.id,
-            message_id=data["confirmation_message"],
+            message_id=data["confirmation_message_id"],
             reply_markup=markup,
         )
     except aiogram.exceptions.TelegramBadRequest:

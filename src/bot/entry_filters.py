@@ -1,7 +1,9 @@
 from typing import Any
 
 from aiogram.filters import Filter
+from aiogram.fsm.context import FSMContext
 from aiogram.types import (
+    CallbackQuery,
     TelegramObject,
     User,
 )
@@ -16,3 +18,8 @@ class InnohassleUserFilter(Filter):
         if innohassle_user_id is None:
             return False
         return {"innohassle_user_id": innohassle_user_id}
+
+
+class CallbackFromConfirmationMessageFilter(Filter):
+    async def __call__(self, callback: CallbackQuery, state: FSMContext) -> bool:
+        return callback.message.message_id == (await state.get_data()).get("confirmation_message_id", None)

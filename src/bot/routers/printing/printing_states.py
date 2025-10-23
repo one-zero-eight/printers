@@ -37,12 +37,12 @@ async def gracefully_interrupt_printing_state(
     ):
         if "filename" in data:
             await api_client.cancel_not_started_job(callback_or_message.from_user.id, data["filename"])
-        if "confirmation_message" in data:
+        if "confirmation_message_id" in data:
             try:
                 await bot.edit_message_caption(
-                    caption=f"{html.bold('You\'ve cancelled this print work 🤷‍♀️')}",
+                    caption=f"{html.bold("You've cancelled this print work 🤷‍♀️")}",
                     chat_id=message.chat.id,
-                    message_id=data["confirmation_message"],
+                    message_id=data["confirmation_message_id"],
                 )
             except TelegramBadRequest:
                 pass
@@ -50,12 +50,12 @@ async def gracefully_interrupt_printing_state(
         if "job_id" in data:
             job_attributes = await api_client.check_job(callback_or_message.from_user.id, data["job_id"])
             await api_client.cancel_job(callback_or_message.from_user.id, data["job_id"])
-            if "printer" in data and "confirmation_message" in data:
+            if "printer" in data and "confirmation_message_id" in data:
                 printer = await api_client.get_printer(callback_or_message.from_user.id, data["printer"])
                 try:
                     caption = format_printing_message(data, printer, job_attributes, canceled_manually=True)
                     await bot.edit_message_caption(
-                        caption=caption, chat_id=message.chat.id, message_id=data["confirmation_message"]
+                        caption=caption, chat_id=message.chat.id, message_id=data["confirmation_message_id"]
                     )
                 except TelegramBadRequest:
                     pass

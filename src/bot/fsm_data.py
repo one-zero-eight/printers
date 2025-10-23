@@ -2,6 +2,9 @@ from typing import Literal, TypedDict
 
 
 class FSMData(TypedDict, total=False):
+    # A job
+    confirmation_message_id: int
+
     # Printing
     printer: str
     pages: int
@@ -10,19 +13,16 @@ class FSMData(TypedDict, total=False):
     page_ranges: str | None
     sides: Literal["one-sided", "two-sided-long-edge"]
     number_up: Literal["1", "2", "4", "6", "9", "16"]
-    confirmation_message: int
     job_id: int
 
-    # Printing settings
-    job_settings_copies_message_id: int
-    job_settings_pages_message_id: int
+    # Settings
+    job_settings_message_id: int
 
     # Scanning
     mode: Literal["manual", "auto"] | None
     scanner: str
     quality: Literal["200", "300", "400", "600"]
     scan_sides: Literal["false", "true"]
-    scan_message_id: int
     scan_filename: str | None
     scan_result_pages_count: int | None
     scan_job_id: str

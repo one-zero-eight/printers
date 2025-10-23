@@ -15,6 +15,11 @@ class MenuCallback(CallbackData, prefix="menu"):
     menu: Literal["printer", "copies", "pages", "sides", "layout", "cancel", "confirm"]
 
 
+class MenuDuringPrintingCallback(CallbackData, prefix="menu_during_printing"):
+    menu: Literal["cancel"]
+    job_id: int
+
+
 def format_draft_message(
     data: FSMData, status_or_printer: PrinterStatus | Printer | None, status_of_document: str | None = None
 ) -> tuple[str, InlineKeyboardMarkup]:
@@ -171,9 +176,7 @@ def format_printing_message(
         caption += f"\n{notification}"
 
     if canceled_manually:
-        caption += (
-            f"\n{html.bold('Cancelled on demand')}\n" "Press the button on printer panel if it is still printing."
-        )
+        caption += f"\n{html.bold('Cancelled on demand')}\nPress the button on printer panel if it is still printing."
 
     if timed_out:
         caption += f"\n{html.bold('Job is timed out ☠️')}\n"

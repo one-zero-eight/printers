@@ -34,39 +34,45 @@ async def gracefully_interrupt_scanning_state(
         ScanWork.setup_scanner,
         ScanWork.setup_sides,
     ):
-        assert "scan_message_id" in data
+        assert "confirmation_message_id" in data
         try:
             await bot.edit_message_text(
-                text="Scanning cancelled", chat_id=message.chat.id, message_id=data["scan_message_id"]
+                text="Scanning cancelled", chat_id=message.chat.id, message_id=data["confirmation_message_id"]
             )
         except TelegramBadRequest:
             pass
     elif current_state == ScanWork.scanning:
         assert "scan_job_id" in data
         assert "scanner" in data
-        assert "scan_message_id" in data
+        assert "confirmation_message_id" in data
         scanner = await api_client.get_scanner(callback_or_message.from_user.id, data["scanner"])
         if scanner:
             await api_client.cancel_manual_scan(callback_or_message.from_user.id, scanner, data["scan_job_id"])
         text, markup = format_scanning_message(data, scanner, "cancelled")
         try:
             await bot.edit_message_text(
-                text=text, chat_id=message.chat.id, message_id=data["scan_message_id"], reply_markup=markup
+                text=text, chat_id=message.chat.id, message_id=data["confirmation_message_id"], reply_markup=markup
             )
         except TelegramBadRequest:
             try:
                 await bot.edit_message_caption(
-                    caption=text, chat_id=message.chat.id, message_id=data["scan_message_id"], reply_markup=markup
+                    caption=text,
+                    chat_id=message.chat.id,
+                    message_id=data["confirmation_message_id"],
+                    reply_markup=markup,
                 )
             except TelegramBadRequest:
                 pass
     elif current_state == ScanWork.pause_menu:
-        assert "scan_message_id" in data
+        assert "confirmation_message_id" in data
         scanner = await api_client.get_scanner(callback_or_message.from_user.id, data.get("scanner"))
         caption, markup = format_scanning_paused_message(data, scanner, is_finished=True)
         try:
             await bot.edit_message_caption(
-                caption=caption, chat_id=message.chat.id, message_id=data["scan_message_id"], reply_markup=markup
+                caption=caption,
+                chat_id=message.chat.id,
+                message_id=data["confirmation_message_id"],
+                reply_markup=markup,
             )
         except TelegramBadRequest:
             pass

@@ -57,7 +57,7 @@ def normalize_page_ranges(page_ranges: str) -> str:
     )
 
 
-async def start_pages_setup(callback_or_message: CallbackQuery | Message, state: FSMContext):
+async def start_pages_setup(callback_or_message: CallbackQuery | Message, state: FSMContext, bot: Bot):
     await state.set_state(PrintWork.setup_pages)
     data = await state.get_data()
     display_current = html.quote(data.get("page_ranges") or "all")
@@ -74,17 +74,17 @@ async def start_pages_setup(callback_or_message: CallbackQuery | Message, state:
     message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
     msg = await message.answer(
         text="📑 Send here page ranges to be printed\n\n"
-        f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
+        f"Formatting example: {html.bold('1-5,8,16-20')}\n\n"
         f"Current pages: {html.bold(display_current)}",
         reply_markup=keyboard,
     )
-    await state.update_data(job_settings_pages_message_id=msg.message_id)
+    await state.update_data(job_settings_message_id=msg.message_id)
 
 
 @router.callback_query(PrintWork.settings_menu, MenuCallback.filter(F.menu == "pages"))
-async def job_settings_pages(callback: CallbackQuery, state: FSMContext):
+async def job_settings_pages(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
-    await start_pages_setup(callback, state)
+    await start_pages_setup(callback, state, bot)
 
 
 def sub(integers: map) -> int:
@@ -97,26 +97,26 @@ async def handle_pages_action(callback: CallbackQuery, callback_data: PagesActio
 
     if callback_data.action == "cancel":
         data = await state.get_data()
-        assert "job_settings_pages_message_id" in data
-        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_pages_message_id"])
+        assert "job_settings_message_id" in data
+        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_message_id"])
         await state.set_state(PrintWork.settings_menu)
     elif callback_data.action == "reset":
         await state.update_data(page_ranges=None)
         data = await state.get_data()
-        assert "confirmation_message" in data
-        assert "job_settings_pages_message_id" in data
+        assert "confirmation_message_id" in data
+        assert "job_settings_message_id" in data
         printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
         caption, markup = format_draft_message(data, printer)
         try:
             await bot.edit_message_caption(
                 caption=caption,
                 chat_id=callback.message.chat.id,
-                message_id=data["confirmation_message"],
+                message_id=data["confirmation_message_id"],
                 reply_markup=markup,
             )
         except TelegramBadRequest:
             pass
-        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_pages_message_id"])
+        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_message_id"])
         await state.set_state(PrintWork.settings_menu)
 
 
@@ -127,7 +127,7 @@ async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
     if message.text == "all":
         data["page_ranges"] = None
     elif message.text:
-        assert "job_settings_pages_message_id" in data
+        assert "job_settings_message_id" in data
         try:
             normalized = normalize_page_ranges(message.text)
 
@@ -135,10 +135,10 @@ async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
                 display_current = html.quote(data.get("page_ranges") or "all")
                 try:
                     await bot.edit_message_text(
-                        message_id=data["job_settings_pages_message_id"],
+                        message_id=data["job_settings_message_id"],
                         chat_id=message.chat.id,
                         text=html.bold("📑 Incorrect format\n\n")
-                        + f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
+                        + f"Formatting example: {html.bold('1-5,8,16-20')}\n\n"
                         f"Maybe you meant: {html.bold(html.quote(normalized))}\n\n"
                         f"Current pages: {html.bold(display_current)}",
                     )
@@ -150,9 +150,9 @@ async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
             display_current = html.quote(data.get("page_ranges") or "all")
             try:
                 await bot.edit_message_text(
-                    message_id=data["job_settings_pages_message_id"],
+                    message_id=data["job_settings_message_id"],
                     chat_id=message.chat.id,
-                    text=html.bold("📑 Incorrect format\n\n") + f"Formatting example: {html.bold("1-5,8,16-20")}\n\n"
+                    text=html.bold("📑 Incorrect format\n\n") + f"Formatting example: {html.bold('1-5,8,16-20')}\n\n"
                     f"Current pages: {html.bold(display_current)}",
                 )
             except TelegramBadRequest:
@@ -160,18 +160,18 @@ async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
             return
     await state.update_data(data)
 
-    assert "confirmation_message" in data
-    assert "job_settings_pages_message_id" in data
+    assert "confirmation_message_id" in data
+    assert "job_settings_message_id" in data
     printer = await api_client.get_printer(message.from_user.id, data.get("printer"))
     caption, markup = format_draft_message(data, printer)
     try:
         await bot.edit_message_caption(
             caption=caption,
             chat_id=message.chat.id,
-            message_id=data["confirmation_message"],
+            message_id=data["confirmation_message_id"],
             reply_markup=markup,
         )
     except TelegramBadRequest:
         pass
-    await bot.delete_message(chat_id=message.chat.id, message_id=data["job_settings_pages_message_id"])
+    await bot.delete_message(chat_id=message.chat.id, message_id=data["job_settings_message_id"])
     await state.set_state(PrintWork.settings_menu)

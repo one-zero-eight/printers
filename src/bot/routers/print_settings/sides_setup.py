@@ -22,7 +22,7 @@ class SidesCallback(CallbackData, prefix="sides"):
     sides: Literal["one-sided", "two-sided-long-edge"]
 
 
-async def start_sides_setup(callback_or_message: CallbackQuery | Message, state: FSMContext):
+async def start_sides_setup(callback_or_message: CallbackQuery | Message, state: FSMContext, bot: Bot):
     message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
     await state.set_state(PrintWork.setup_sides)
     markup = InlineKeyboardMarkup(
@@ -35,30 +35,31 @@ async def start_sides_setup(callback_or_message: CallbackQuery | Message, state:
             ]
         ]
     )
-    await message.answer(
-        f"🌚🌝 Set {html.bold("paper sides")}",
+    msg = await message.answer(
+        f"🌚🌝 Set {html.bold('paper sides')}",
         reply_markup=markup,
     )
+    await state.update_data(job_settings_message_id=msg.message_id)
 
 
 @router.callback_query(PrintWork.settings_menu, MenuCallback.filter(F.menu == "sides"))
-async def job_settings_sides(callback: CallbackQuery, state: FSMContext):
+async def job_settings_sides(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
-    await start_sides_setup(callback, state)
+    await start_sides_setup(callback, state, bot)
 
 
 @router.callback_query(PrintWork.setup_sides, SidesCallback.filter())
 async def apply_settings_sides(callback: CallbackQuery, callback_data: SidesCallback, state: FSMContext, bot: Bot):
     await state.update_data(sides=callback_data.sides)
     data = await state.get_data()
-    assert "confirmation_message" in data
+    assert "confirmation_message_id" in data
     printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
     try:
         caption, markup = format_draft_message(data, printer)
         await bot.edit_message_caption(
             caption=caption,
             chat_id=callback.message.chat.id,
-            message_id=data["confirmation_message"],
+            message_id=data["confirmation_message_id"],
             reply_markup=markup,
         )
     except aiogram.exceptions.TelegramBadRequest:

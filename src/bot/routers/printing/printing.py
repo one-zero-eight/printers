@@ -1,12 +1,12 @@
 import asyncio
 import io
 import time
-from typing import Literal
+from typing import get_args
 
 import aiogram.exceptions
 import httpx
 from aiogram import Bot, F, Router, flags, html
-from aiogram.filters.callback_data import CallbackData
+from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
 from aiogram.types import (
@@ -21,12 +21,18 @@ from aiogram_media_group import media_group_handler
 
 from src.bot import shared_messages
 from src.bot.api import api_client
+from src.bot.entry_filters import CallbackFromConfirmationMessageFilter
 from src.bot.interrupts import gracefully_interrupt_state
 from src.bot.logging_ import logger
+from src.bot.routers.print_settings.copies_setup import start_copies_setup
+from src.bot.routers.print_settings.layout_setup import start_layout_setup
+from src.bot.routers.print_settings.pages_setup import start_pages_setup
 from src.bot.routers.print_settings.printer_setup import start_printer_setup
+from src.bot.routers.print_settings.sides_setup import start_sides_setup
 from src.bot.routers.printing.printing_states import PrintWork
 from src.bot.routers.printing.printing_tools import (
     MenuCallback,
+    MenuDuringPrintingCallback,
     count_of_papers_to_print,
     format_draft_message,
     format_printing_message,
@@ -105,7 +111,7 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
         sides="one-sided",
         number_up="1",
     )
-    data["confirmation_message"] = msg.message_id
+    data["confirmation_message_id"] = msg.message_id
     assert "filename" in data
     printer = await api_client.get_printer(message.from_user.id, data.get("printer"))
     printer_status = await api_client.get_printer_status(message.from_user.id, printer.cups_name if printer else None)
@@ -128,11 +134,15 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
     )
 
 
-@router.callback_query(PrintWork.settings_menu, MenuCallback.filter(F.menu == "cancel"))
-async def cancel_print_configuration_handler(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(CallbackFromConfirmationMessageFilter(), MenuCallback.filter(F.menu == "cancel"))
+async def cancel_print_configuration_handler(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
 
     data = await state.get_data()
+
+    if "job_settings_message_id" in data:
+        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_message_id"])
+
     assert "filename" in data
     await api_client.cancel_not_started_job(callback.from_user.id, data["filename"])
     try:
@@ -145,19 +155,18 @@ async def cancel_print_configuration_handler(callback: CallbackQuery, state: FSM
     await shared_messages.go_to_default_state(callback, state)
 
 
-class MenuDuringPrintingCallback(CallbackData, prefix="menu_during_printing"):
-    menu: Literal["cancel"]
-    job_id: int
-
-
-@router.callback_query(PrintWork.settings_menu, MenuCallback.filter(F.menu == "confirm"))
+@router.callback_query(CallbackFromConfirmationMessageFilter(), MenuCallback.filter(F.menu == "confirm"))
 @flags.chat_action("typing")
-async def start_print_handler(callback: CallbackQuery, state: FSMContext):
+async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
     await state.set_state(PrintWork.printing)
 
     # Get data and set up printing options
     data = await state.get_data()
+
+    if "job_settings_message_id" in data:
+        await bot.delete_message(chat_id=callback.message.chat.id, message_id=data["job_settings_message_id"])
+
     assert "filename" in data
     assert "printer" in data
     assert "copies" in data
@@ -293,3 +302,16 @@ async def cancel_print_handler(callback: CallbackQuery, callback_data: MenuDurin
 )
 async def any_message_handler(message: Message, state: FSMContext, bot: Bot):
     await document_handler(message.reply_to_message, state, bot)
+
+
+@router.callback_query(
+    ~StateFilter(PrintWork.settings_menu), CallbackFromConfirmationMessageFilter(), MenuCallback.filter()
+)
+async def switch_settings_option(callback: CallbackQuery, callback_data: MenuCallback, state: FSMContext, bot: Bot):
+    await callback.answer()
+    await bot.delete_message(
+        chat_id=callback.message.chat.id, message_id=(await state.get_data())["job_settings_message_id"]
+    )
+    await [start_printer_setup, start_copies_setup, start_pages_setup, start_sides_setup, start_layout_setup][
+        get_args(MenuCallback.model_fields["menu"].annotation).index(callback_data.menu)
+    ](callback, state, bot)

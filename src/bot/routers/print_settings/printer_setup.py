@@ -33,9 +33,10 @@ async def start_printer_setup(callback_or_message: CallbackQuery | Message, stat
     await state.set_state(PrintWork.setup_printer)
     printers = await api_client.get_printers_list(callback_or_message.from_user.id)
 
-    text = f"🖨📠 Choose {html.bold("the printer")}"
+    text = f"🖨📠 Choose {html.bold('the printer')}"
     message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
     msg = await message.answer(text, reply_markup=printers_keyboard(printers))
+    await state.update_data(job_settings_message_id=msg.message_id)
 
     asyncio.create_task(
         update_printer_statuses(
@@ -67,14 +68,14 @@ async def apply_settings_printer(callback: CallbackQuery, callback_data: Printer
     await state.update_data(printer=printer.cups_name)
     data = await state.get_data()
     assert "printer" in data
-    assert "confirmation_message" in data
+    assert "confirmation_message_id" in data
     printer_status = await api_client.get_printer_status(callback.from_user.id, data.get("printer"))
     try:
         caption, markup = format_draft_message(data, printer_status)
         await bot.edit_message_caption(
             caption=caption,
             chat_id=callback.message.chat.id,
-            message_id=data["confirmation_message"],
+            message_id=data["confirmation_message_id"],
             reply_markup=markup,
         )
     except aiogram.exceptions.TelegramBadRequest:
