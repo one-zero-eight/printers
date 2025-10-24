@@ -40,10 +40,10 @@ async def command_scan_handler(message: Message, state: FSMContext, bot: Bot):
         scan_sides="false",
     )
     if "mode" not in data:
-        data["mode"] = None
+        data = await state.update_data(mode=None)
     scanner = await api_client.get_scanner(message.from_user.id, data.get("scanner"))
     if scanner:
-        data["scanner"] = scanner.name
+        data = await state.update_data(scanner=scanner.name)
     else:
         data.pop("scanner", None)
 
