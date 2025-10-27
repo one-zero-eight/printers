@@ -53,6 +53,7 @@ async def handle_copies_action(
 ):
     await callback.answer()
     data = await state.get_data()
+    await discard_job_settings_message(data, callback.message, state, bot)
     if callback_data.action == "reset":
         data = await state.update_data(copies="1")
         assert "confirmation_message_id" in data
@@ -67,7 +68,6 @@ async def handle_copies_action(
             )
         except aiogram.exceptions.TelegramBadRequest:
             pass
-    await discard_job_settings_message(data, callback.message, state, bot)
     await state.set_state(PrintWork.settings_menu)
 
 
@@ -90,6 +90,7 @@ async def apply_settings_copies(message: Message, state: FSMContext, bot: Bot):
         except aiogram.exceptions.TelegramBadRequest:
             pass
         return
+    await discard_job_settings_message(data, message, state, bot)
     copies = str(max(0, min(50, int(message.text))))
     data = await state.update_data(copies=copies)
     assert "confirmation_message_id" in data
@@ -104,5 +105,4 @@ async def apply_settings_copies(message: Message, state: FSMContext, bot: Bot):
         )
     except aiogram.exceptions.TelegramBadRequest:
         pass
-    await discard_job_settings_message(data, message, state, bot)
     await state.set_state(PrintWork.settings_menu)

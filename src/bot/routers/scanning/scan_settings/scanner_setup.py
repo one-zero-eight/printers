@@ -49,6 +49,8 @@ async def apply_settings_scanner(callback: CallbackQuery, callback_data: Scanner
 
     await callback.answer()
     scanner = await api_client.get_scanner(callback.from_user.id, callback_data.scanner_name)
+    data = await state.get_data()
+    await discard_job_settings_message(data, callback.message, state, bot)
     if scanner is None:
         await callback.message.answer("Scanner not found")
         return
@@ -66,7 +68,6 @@ async def apply_settings_scanner(callback: CallbackQuery, callback_data: Scanner
         )
     except TelegramBadRequest:
         pass
-    await discard_job_settings_message(data, callback.message, state, bot)
 
     if data.get("mode") is not None:
         await state.set_state(ScanWork.settings_menu)

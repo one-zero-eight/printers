@@ -62,10 +62,11 @@ async def job_settings_printer(callback: CallbackQuery, state: FSMContext, bot: 
 async def apply_settings_printer(callback: CallbackQuery, callback_data: PrinterCallback, state: FSMContext, bot: Bot):
     printer_cups_name = callback_data.cups_name
     printer = await api_client.get_printer(callback.from_user.id, printer_cups_name)
+    data = await state.get_data()
+    await discard_job_settings_message(data, callback.message, state, bot)
     if printer is None:  # Wrong callback.data, no such printer exist now
         await callback.answer("Printer not found")
         return
-
     data = await state.update_data(printer=printer.cups_name)
     assert "printer" in data
     assert "confirmation_message_id" in data
@@ -80,7 +81,6 @@ async def apply_settings_printer(callback: CallbackQuery, callback_data: Printer
         )
     except aiogram.exceptions.TelegramBadRequest:
         pass
-    await discard_job_settings_message(data, callback.message, state, bot)
     await state.set_state(PrintWork.settings_menu)
 
 

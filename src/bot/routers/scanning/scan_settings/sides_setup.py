@@ -50,6 +50,7 @@ async def apply_settings_sides(callback: CallbackQuery, callback_data: ScanSides
 
     await callback.answer()
     data = await state.update_data(scan_sides=callback_data.sides)
+    await discard_job_settings_message(data, callback.message, state, bot)
     await state.set_state(ScanWork.settings_menu)
 
     assert "confirmation_message_id" in data
@@ -61,4 +62,3 @@ async def apply_settings_sides(callback: CallbackQuery, callback_data: ScanSides
         )
     except TelegramBadRequest:
         pass
-    await discard_job_settings_message(data, callback.message, state, bot)

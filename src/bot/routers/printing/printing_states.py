@@ -5,7 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
 from src.bot.api import api_client
-from src.bot.routers.printing.printing_tools import format_printing_message
+from src.bot.routers.printing.printing_tools import discard_job_settings_message, format_printing_message
 
 
 class PrintWork(StatesGroup):
@@ -35,6 +35,7 @@ async def gracefully_interrupt_printing_state(
         PrintWork.setup_printer,
         PrintWork.setup_sides,
     ):
+        await discard_job_settings_message(data, message, state, bot)
         if "filename" in data:
             await api_client.cancel_not_started_job(callback_or_message.from_user.id, data["filename"])
         if "confirmation_message_id" in data:

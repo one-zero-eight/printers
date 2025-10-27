@@ -51,6 +51,7 @@ async def job_settings_sides(callback: CallbackQuery, state: FSMContext, bot: Bo
 @router.callback_query(PrintWork.setup_sides, SidesCallback.filter())
 async def apply_settings_sides(callback: CallbackQuery, callback_data: SidesCallback, state: FSMContext, bot: Bot):
     data = await state.update_data(sides=callback_data.sides)
+    await discard_job_settings_message(data, callback.message, state, bot)
     assert "confirmation_message_id" in data
     printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
     try:
@@ -63,5 +64,4 @@ async def apply_settings_sides(callback: CallbackQuery, callback_data: SidesCall
         )
     except aiogram.exceptions.TelegramBadRequest:
         pass
-    await discard_job_settings_message(data, callback.message, state, bot)
     await state.set_state(PrintWork.settings_menu)

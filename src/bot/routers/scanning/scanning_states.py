@@ -5,6 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
 from src.bot.api import api_client
+from src.bot.routers.printing.printing_tools import discard_job_settings_message
 from src.bot.routers.scanning.scanning_tools import format_scanning_message, format_scanning_paused_message
 
 
@@ -34,6 +35,7 @@ async def gracefully_interrupt_scanning_state(
         ScanWork.setup_scanner,
         ScanWork.setup_sides,
     ):
+        await discard_job_settings_message(data, message, state, bot)
         assert "confirmation_message_id" in data
         try:
             await bot.edit_message_text(
