@@ -295,7 +295,7 @@ async def cancel_print_handler(callback: CallbackQuery, callback_data: MenuDurin
     F.reply_to_message,
     lambda message: message.reply_to_message.content_type in (ContentType.DOCUMENT, ContentType.PHOTO),
 )
-async def any_message_handler(message: Message, state: FSMContext, bot: Bot):
+async def reply_handler(message: Message, state: FSMContext, bot: Bot):
     await document_handler(message.reply_to_message, state, bot)
 
 
