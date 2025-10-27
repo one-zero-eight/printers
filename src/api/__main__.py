@@ -19,5 +19,5 @@ extended_args = [
     *args,
 ]
 
-print(f"🚀 Starting Uvicorn server: 'uvicorn {" ".join(extended_args)}'")
+print(f"🚀 Starting Uvicorn server: 'uvicorn {' '.join(extended_args)}'")
 uvicorn.main.main(extended_args)

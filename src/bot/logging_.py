@@ -20,9 +20,7 @@ dictConfig = {
     "formatters": {
         "default": {
             "()": "colorlog.ColoredFormatter",
-            "format": "[%(black)s%(asctime)s%(reset)s] "
-            "[%(log_color)s%(levelname)s%(reset)s] "
-            "[%(name)s] %(message)s",
+            "format": "[%(black)s%(asctime)s%(reset)s] [%(log_color)s%(levelname)s%(reset)s] [%(name)s] %(message)s",
         },
         "src": {
             "()": "colorlog.ColoredFormatter",

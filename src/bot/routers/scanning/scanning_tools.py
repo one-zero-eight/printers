@@ -30,9 +30,9 @@ def format_configure_message(data: FSMData, scanner: Scanner | None) -> tuple[st
         return string + " " * (100 - len(string)) + "."
 
     display_mode = empty_inline_space_remainder(
-        f"✏️ {"Manual Scan" if data["mode"] == "manual" else "Auto Scan" if data["mode"] == "auto" else "—"}"
+        f"✏️ {'Manual Scan' if data['mode'] == 'manual' else 'Auto Scan' if data['mode'] == 'auto' else '—'}"
     )
-    display_scanner = empty_inline_space_remainder(f"✏️ {scanner.display_name if scanner else "—"}")
+    display_scanner = empty_inline_space_remainder(f"✏️ {scanner.display_name if scanner else '—'}")
     display_quality = empty_inline_space_remainder(f"✏️ {data['quality']} DPI")
     display_sides = empty_inline_space_remainder(f"✏️ {'One side' if data['scan_sides'] == 'false' else 'Both sides'}")
     markup = InlineKeyboardMarkup(

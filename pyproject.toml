@@ -41,6 +41,7 @@ default-groups = ["mongo"]
 line-length = 120
 lint.extend-select = ["I", "UP", "PL"]
 lint.extend-ignore = ["PLC0415", "PLR"]
+exclude = ["*.pyi"]
 target-version = "py313"
 
 [tool.pyright]
