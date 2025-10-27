@@ -198,7 +198,7 @@ def format_printer_status(status: PrinterStatus) -> str:
     elif status.toner_percentage is not None:
         show_text += f" 🩸 {status.toner_percentage}%"
     elif status.paper_percentage is not None:
-        show_text += f" 📄 {status.paper_percentage}%"
+        show_text += f", 📄 {'is present' if status.paper_percentage > 0 else 'is absent'}"
     return show_text
 
 

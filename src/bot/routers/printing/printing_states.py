@@ -36,8 +36,6 @@ async def gracefully_interrupt_printing_state(
         PrintWork.setup_sides,
     ):
         await discard_job_settings_message(data, message, state, bot)
-        if "filename" in data:
-            await api_client.cancel_not_started_job(callback_or_message.from_user.id, data["filename"])
         if "confirmation_message_id" in data:
             try:
                 await bot.edit_message_caption(
@@ -47,6 +45,8 @@ async def gracefully_interrupt_printing_state(
                 )
             except TelegramBadRequest:
                 pass
+        if "filename" in data:
+            await api_client.cancel_not_started_job(callback_or_message.from_user.id, data["filename"])
     elif current_state == PrintWork.printing:
         if "job_id" in data:
             job_attributes = await api_client.check_job(callback_or_message.from_user.id, data["job_id"])
