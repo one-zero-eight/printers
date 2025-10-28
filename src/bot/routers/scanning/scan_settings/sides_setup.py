@@ -54,7 +54,7 @@ async def apply_settings_sides(callback: CallbackQuery, callback_data: ScanSides
     await state.set_state(ScanWork.settings_menu)
 
     assert "confirmation_message_id" in data
-    scanner = await api_client.get_scanner(callback.from_user.id, data.get("scanner"))
+    scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     text, markup = format_configure_message(data, scanner)
     try:
         await bot.edit_message_text(

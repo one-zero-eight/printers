@@ -17,7 +17,8 @@ router = Router(name="scanner_setup")
 async def start_scanner_setup(callback_or_message: CallbackQuery | Message, state: FSMContext, bot: Bot):
     await state.set_state(ScanWork.setup_scanner)
 
-    scanners = await api_client.get_scanners_list(callback_or_message.from_user.id)
+    message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
+    scanners = await api_client.get_scanners_list(message.chat.id)
     keyboard = InlineKeyboardBuilder()
     for scanner in scanners:
         keyboard.row(
@@ -26,7 +27,6 @@ async def start_scanner_setup(callback_or_message: CallbackQuery | Message, stat
             )
         )
 
-    message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
     msg = await message.answer(f"🖨📠 Choose {html.bold('the scanner')}", reply_markup=keyboard.as_markup())
     await state.update_data(job_settings_message_id=msg.message_id)
 
@@ -48,7 +48,7 @@ async def apply_settings_scanner(callback: CallbackQuery, callback_data: Scanner
     from src.bot.routers.scanning.scanning_tools import format_configure_message
 
     await callback.answer()
-    scanner = await api_client.get_scanner(callback.from_user.id, callback_data.scanner_name)
+    scanner = await api_client.get_scanner(callback.message.chat.id, callback_data.scanner_name)
     data = await state.get_data()
     await discard_job_settings_message(data, callback.message, state, bot)
     if scanner is None:
@@ -57,7 +57,7 @@ async def apply_settings_scanner(callback: CallbackQuery, callback_data: Scanner
 
     data = await state.update_data(scanner=scanner.name)
     assert "confirmation_message_id" in data
-    scanner = await api_client.get_scanner(callback.from_user.id, data.get("scanner"))
+    scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     text, markup = format_configure_message(data, scanner)
     try:
         await bot.edit_message_text(

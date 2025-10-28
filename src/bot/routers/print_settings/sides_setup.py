@@ -53,7 +53,7 @@ async def apply_settings_sides(callback: CallbackQuery, callback_data: SidesCall
     data = await state.update_data(sides=callback_data.sides)
     await discard_job_settings_message(data, callback.message, state, bot)
     assert "confirmation_message_id" in data
-    printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
+    printer = await api_client.get_printer(callback.message.chat.id, data.get("printer"))
     try:
         caption, markup = format_draft_message(data, printer)
         await bot.edit_message_caption(

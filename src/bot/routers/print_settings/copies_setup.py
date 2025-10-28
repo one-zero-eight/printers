@@ -57,7 +57,7 @@ async def handle_copies_action(
     if callback_data.action == "reset":
         data = await state.update_data(copies="1")
         assert "confirmation_message_id" in data
-        printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
+        printer = await api_client.get_printer(callback.message.chat.id, data.get("printer"))
         caption, markup = format_draft_message(data, printer)
         try:
             await bot.edit_message_caption(
@@ -94,7 +94,7 @@ async def apply_settings_copies(message: Message, state: FSMContext, bot: Bot):
     copies = str(max(0, min(50, int(message.text))))
     data = await state.update_data(copies=copies)
     assert "confirmation_message_id" in data
-    printer = await api_client.get_printer(message.from_user.id, data.get("printer"))
+    printer = await api_client.get_printer(message.chat.id, data.get("printer"))
     caption, markup = format_draft_message(data, printer)
     try:
         await bot.edit_message_caption(

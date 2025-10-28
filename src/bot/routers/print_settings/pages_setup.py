@@ -101,7 +101,7 @@ async def handle_pages_action(callback: CallbackQuery, callback_data: PagesActio
     if callback_data.action == "reset":
         data = await state.update_data(page_ranges=None)
         assert "confirmation_message_id" in data
-        printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
+        printer = await api_client.get_printer(callback.message.chat.id, data.get("printer"))
         caption, markup = format_draft_message(data, printer)
         try:
             await bot.edit_message_caption(
@@ -155,7 +155,7 @@ async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
     await discard_job_settings_message(data, message, state, bot)
     data = await state.update_data(data)
     assert "confirmation_message_id" in data
-    printer = await api_client.get_printer(message.from_user.id, data.get("printer"))
+    printer = await api_client.get_printer(message.chat.id, data.get("printer"))
     caption, markup = format_draft_message(data, printer)
     try:
         await bot.edit_message_caption(

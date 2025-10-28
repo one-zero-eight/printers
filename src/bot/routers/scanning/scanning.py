@@ -41,7 +41,7 @@ async def command_scan_handler(message: Message, state: FSMContext, bot: Bot):
     )
     if "mode" not in data:
         data = await state.update_data(mode=None)
-    scanner = await api_client.get_scanner(message.from_user.id, data.get("scanner"))
+    scanner = await api_client.get_scanner(message.chat.id, data.get("scanner"))
     if scanner:
         data = await state.update_data(scanner=scanner.name)
     else:
@@ -87,7 +87,7 @@ async def start_scan_handler(
         # We are starting a new scan
         assert "confirmation_message_id" in data
 
-        scanner = await api_client.get_scanner(callback.from_user.id, data.get("scanner"))
+        scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
         try:
             caption, markup = format_scanning_paused_message(data, scanner, is_finished=True)
             await bot.edit_message_caption(
@@ -114,7 +114,7 @@ async def start_scan_handler(
 
     has_caption = data.get("scan_filename") is not None
 
-    scanner = await api_client.get_scanner(callback.from_user.id, data.get("scanner"))
+    scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     if not scanner:
         await callback.message.answer("Scanner not found")
         return
@@ -145,7 +145,7 @@ async def start_scan_handler(
         input_source="Platen" if data["mode"] == "manual" else "Adf",
     )
     try:
-        scan_job_id = await api_client.start_manual_scan(callback.from_user.id, scanner, scanning_options)
+        scan_job_id = await api_client.start_manual_scan(callback.message.chat.id, scanner, scanning_options)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 503:
             await callback.message.answer("Scanner is busy. Try pressing Cancel button on the device and try again.")
@@ -194,7 +194,7 @@ async def start_scan_handler(
 
     # Wait for document to be scanned
     scanning_result = await api_client.wait_and_merge_manual_scan(
-        callback.from_user.id, scanner, scan_job_id, data.get("scan_filename")
+        callback.message.chat.id, scanner, scan_job_id, data.get("scan_filename")
     )
     data = await state.update_data(
         scan_filename=scanning_result.filename,
@@ -203,7 +203,7 @@ async def start_scan_handler(
     assert "confirmation_message_id" in data
 
     # Update message
-    file = await api_client.get_scanned_file(callback.from_user.id, scanning_result.filename)
+    file = await api_client.get_scanned_file(callback.message.chat.id, scanning_result.filename)
     input_file = BufferedInputFile(file, filename="scan.pdf")
     text, markup = format_scanning_paused_message(data, scanner)
     await bot.edit_message_media(
@@ -236,7 +236,7 @@ async def scanning_paused_remove_last_handler(
     if not prev_filename:
         await callback.message.answer("No scanned files found")
         return
-    scanning_result = await api_client.remove_last_page_manual_scan(callback.from_user.id, prev_filename)
+    scanning_result = await api_client.remove_last_page_manual_scan(callback.message.chat.id, prev_filename)
     data = await state.update_data(
         scan_filename=scanning_result.filename,
         scan_result_pages_count=scanning_result.page_count,
@@ -244,9 +244,9 @@ async def scanning_paused_remove_last_handler(
     assert "confirmation_message_id" in data
 
     # Send file
-    file = await api_client.get_scanned_file(callback.from_user.id, scanning_result.filename)
+    file = await api_client.get_scanned_file(callback.message.chat.id, scanning_result.filename)
     input_file = BufferedInputFile(file, filename="scan.pdf")
-    scanner = await api_client.get_scanner(callback.from_user.id, data.get("scanner"))
+    scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     text, markup = format_scanning_paused_message(data, scanner)
     await bot.edit_message_media(
         media=InputMediaDocument(media=input_file, caption=text),
@@ -264,9 +264,9 @@ async def scanning_paused_finish_handler(callback: CallbackQuery, state: FSMCont
     data = await state.get_data()
     assert "confirmation_message_id" in data
     if "scan_filename" in data:
-        await api_client.delete_scanned_file(callback.from_user.id, data["scan_filename"])
+        await api_client.delete_scanned_file(callback.message.chat.id, data["scan_filename"])
 
-    scanner = await api_client.get_scanner(callback.from_user.id, data.get("scanner"))
+    scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     try:
         caption, markup = format_scanning_paused_message(data, scanner, is_finished=True)
         await bot.edit_message_caption(

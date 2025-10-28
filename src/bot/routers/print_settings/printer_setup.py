@@ -32,16 +32,16 @@ router = Router(name="printer_choice")
 
 async def start_printer_setup(callback_or_message: CallbackQuery | Message, state: FSMContext, bot: Bot):
     await state.set_state(PrintWork.setup_printer)
-    printers = await api_client.get_printers_list(callback_or_message.from_user.id)
 
     text = f"🖨📠 Choose {html.bold('the printer')}"
     message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
+    printers = await api_client.get_printers_list(message.chat.id)
     msg = await message.answer(text, reply_markup=printers_keyboard(printers))
     await state.update_data(job_settings_message_id=msg.message_id)
 
     asyncio.create_task(
         update_printer_statuses(
-            callback_or_message.from_user.id,
+            message.chat.id,
             message.chat.id,
             msg.message_id,
             printers,
@@ -61,7 +61,7 @@ async def job_settings_printer(callback: CallbackQuery, state: FSMContext, bot: 
 @router.callback_query(PrintWork.setup_printer, PrinterCallback.filter())
 async def apply_settings_printer(callback: CallbackQuery, callback_data: PrinterCallback, state: FSMContext, bot: Bot):
     printer_cups_name = callback_data.cups_name
-    printer = await api_client.get_printer(callback.from_user.id, printer_cups_name)
+    printer = await api_client.get_printer(callback.message.chat.id, printer_cups_name)
     data = await state.get_data()
     await discard_job_settings_message(data, callback.message, state, bot)
     if printer is None:  # Wrong callback.data, no such printer exist now
@@ -70,7 +70,7 @@ async def apply_settings_printer(callback: CallbackQuery, callback_data: Printer
     data = await state.update_data(printer=printer.cups_name)
     assert "printer" in data
     assert "confirmation_message_id" in data
-    printer_status = await api_client.get_printer_status(callback.from_user.id, data.get("printer"))
+    printer_status = await api_client.get_printer_status(callback.message.chat.id, data.get("printer"))
     try:
         caption, markup = format_draft_message(data, printer_status)
         await bot.edit_message_caption(

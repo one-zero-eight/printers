@@ -81,7 +81,7 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
 
     await msg.edit_text("Converting document to PDF...")
     try:
-        result = await api_client.prepare_document(message.from_user.id, file_telegram_name, file)
+        result = await api_client.prepare_document(message.chat.id, file_telegram_name, file)
     except httpx.HTTPStatusError as e:
         await msg.delete()
         if e.response.status_code == 400:
@@ -114,8 +114,8 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
         confirmation_message_id=msg.message_id,
     )
     assert "filename" in data
-    printer = await api_client.get_printer(message.from_user.id, data.get("printer"))
-    printer_status = await api_client.get_printer_status(message.from_user.id, printer.cups_name if printer else None)
+    printer = await api_client.get_printer(message.chat.id, data.get("printer"))
+    printer_status = await api_client.get_printer_status(message.chat.id, printer.cups_name if printer else None)
     caption, markup = format_draft_message(data, printer_status, status_of_document="Uploading...")
     await msg.edit_text(text=caption, reply_markup=markup if data.get("printer") is not None else None)
     await state.set_state(PrintWork.settings_menu)
@@ -125,7 +125,7 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
         await start_printer_setup(message, state, bot)
 
     # Attach document to the message
-    document = await api_client.get_prepared_document(message.from_user.id, data["filename"])
+    document = await api_client.get_prepared_document(message.chat.id, data["filename"])
     input_file = BufferedInputFile(document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf")
     caption, markup = format_draft_message(data, printer_status)
     await msg.edit_media(
@@ -141,7 +141,7 @@ async def cancel_print_configuration_handler(callback: CallbackQuery, state: FSM
     data = await state.get_data()
     await discard_job_settings_message(data, callback.message, state, bot)
     assert "filename" in data
-    await api_client.cancel_not_started_job(callback.from_user.id, data["filename"])
+    await api_client.cancel_not_started_job(callback.message.chat.id, data["filename"])
     try:
         if isinstance(callback.message, Message):
             await callback.message.edit_caption(
@@ -170,7 +170,7 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
     assert "sides" in data
     assert "pages" in data
 
-    printer = await api_client.get_printer(callback.from_user.id, data["printer"])
+    printer = await api_client.get_printer(callback.message.chat.id, data["printer"])
 
     if printer is None:
         await callback.answer("Printer not found")
@@ -185,7 +185,7 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
 
     # Start the print job
     job_id = await api_client.begin_job(
-        callback.from_user.id,
+        callback.message.chat.id,
         data["filename"],
         printer.cups_name,
         printing_options,
@@ -228,7 +228,7 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
 
         # Get job attributes
         try:
-            job_attributes = await api_client.check_job(callback.from_user.id, job_id)
+            job_attributes = await api_client.check_job(callback.message.chat.id, job_id)
         except httpx.HTTPStatusError as e:
             logger.warning(f"Failed to get job attributes for job {job_id}: {e}")
             await asyncio.sleep(1)
@@ -263,8 +263,8 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
 
     # Handle timeout case
     else:
-        await api_client.cancel_job(callback.from_user.id, job_id)
-        job_attributes = await api_client.check_job(callback.from_user.id, job_id)
+        await api_client.cancel_job(callback.message.chat.id, job_id)
+        job_attributes = await api_client.check_job(callback.message.chat.id, job_id)
         try:
             if isinstance(callback.message, Message):
                 caption = format_printing_message(data, printer, job_attributes, timed_out=True)
@@ -278,11 +278,11 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
 async def cancel_print_handler(callback: CallbackQuery, callback_data: MenuDuringPrintingCallback, state: FSMContext):
     job_id = callback_data.job_id
     data = await state.get_data()
-    job_attributes = await api_client.check_job(callback.from_user.id, job_id)
-    await api_client.cancel_job(callback.from_user.id, job_id)
+    job_attributes = await api_client.check_job(callback.message.chat.id, job_id)
+    await api_client.cancel_job(callback.message.chat.id, job_id)
     await shared_messages.go_to_default_state(callback, state)
 
-    printer = await api_client.get_printer(callback.from_user.id, data.get("printer"))
+    printer = await api_client.get_printer(callback.message.chat.id, data.get("printer"))
     try:
         caption = format_printing_message(data, printer, job_attributes, canceled_manually=True)
         if isinstance(callback.message, Message):

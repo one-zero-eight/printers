@@ -53,7 +53,7 @@ async def apply_settings_mode(callback: CallbackQuery, callback_data: ScanModeCa
     data = await state.update_data(mode=callback_data.mode)
     await discard_job_settings_message(data, callback.message, state, bot)
     assert "confirmation_message_id" in data
-    scanner = await api_client.get_scanner(callback.from_user.id, data.get("scanner"))
+    scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     text, markup = format_configure_message(data, scanner)
     try:
         await bot.edit_message_text(

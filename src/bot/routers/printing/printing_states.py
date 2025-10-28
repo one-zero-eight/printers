@@ -46,13 +46,13 @@ async def gracefully_interrupt_printing_state(
             except TelegramBadRequest:
                 pass
         if "filename" in data:
-            await api_client.cancel_not_started_job(callback_or_message.from_user.id, data["filename"])
+            await api_client.cancel_not_started_job(message.chat.id, data["filename"])
     elif current_state == PrintWork.printing:
         if "job_id" in data:
-            job_attributes = await api_client.check_job(callback_or_message.from_user.id, data["job_id"])
-            await api_client.cancel_job(callback_or_message.from_user.id, data["job_id"])
+            job_attributes = await api_client.check_job(message.chat.id, data["job_id"])
+            await api_client.cancel_job(message.chat.id, data["job_id"])
             if "printer" in data and "confirmation_message_id" in data:
-                printer = await api_client.get_printer(callback_or_message.from_user.id, data["printer"])
+                printer = await api_client.get_printer(message.chat.id, data["printer"])
                 try:
                     caption = format_printing_message(data, printer, job_attributes, canceled_manually=True)
                     await bot.edit_message_caption(
