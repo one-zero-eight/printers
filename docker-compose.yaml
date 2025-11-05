@@ -39,7 +39,7 @@ services:
       - "2003:2003"
 
   cups:
-    image: olbat/cupsd:2025-05-12
+    image: olbat/cupsd:2025-11-03
     restart: no
     volumes:
       - "cups:/etc/cups"
