@@ -11,3 +11,4 @@ bot:
   database_uri: mongodb://mongoadmin:secret@127.0.0.1:27017/db?authSource=admin # "mongodb://mongoadmin:secret@db:27017/db?authSource=admin" for Docker Compose
   api_url: http://127.0.0.1:8000
   bot_token: null
+  proxy_url: null # protocol://user:password@host:port

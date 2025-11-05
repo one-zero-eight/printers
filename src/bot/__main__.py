@@ -3,6 +3,7 @@ import asyncio
 import motor.motor_asyncio
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.storage.mongo import MongoStorage
@@ -11,6 +12,7 @@ from aiogram.utils.markdown import hblockquote
 
 import src.bot.logging_  # noqa: F401
 from src.bot.dispatcher import CustomDispatcher
+from src.bot.logging_ import logger
 from src.bot.middlewares import ChatActionMiddleware, LogAllEventsMiddleware
 from src.bot.routers.globals import router as globals_router
 from src.bot.routers.print_settings.copies_setup import router as print_copies_setup_router
@@ -36,7 +38,16 @@ async def main() -> None:
         collection_name=settings.bot.database_collection_name,
     )
     dispatcher = CustomDispatcher(storage=storage)
-    bot = Bot(token=settings.bot.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    if settings.bot.proxy_url:
+        logger.info("Using proxy")
+        session = AiohttpSession(proxy=settings.bot.proxy_url.get_secret_value())
+    else:
+        session = None
+    bot = Bot(
+        token=settings.bot.bot_token.get_secret_value(),
+        session=session,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
     log_all_events_middleware = LogAllEventsMiddleware()
     dispatcher.message.middleware(log_all_events_middleware)
     dispatcher.callback_query.middleware(log_all_events_middleware)

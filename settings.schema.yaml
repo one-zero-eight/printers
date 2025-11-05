@@ -150,6 +150,17 @@ $defs:
         default: null
         description: ID of the video to send as help message
         title: Help Video Id
+      proxy_url:
+        anyOf:
+        - format: password
+          type: string
+          writeOnly: true
+        - type: 'null'
+        default: null
+        description: Proxy URL for the bot session
+        examples:
+        - protocol://user:password@host:port
+        title: Proxy Url
     required:
     - bot_token
     - database_uri

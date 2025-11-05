@@ -96,6 +96,8 @@ class BotSettings(SettingBaseModel):
     "MongoDB collection name for FSM"
     help_video_id: str | None = None
     "ID of the video to send as help message"
+    proxy_url: SecretStr | None = Field(None, examples=["protocol://user:password@host:port"])
+    "Proxy URL for the bot session"
 
 
 class Settings(SettingBaseModel):
