@@ -122,7 +122,7 @@ def check_database_access():
     from motor.motor_asyncio import AsyncIOMotorClient
     from pymongo import timeout
 
-    DEFAULT_DB_URL = "mongodb://mongoadmin:secret@localhost:27017/db?authSource=admin"
+    DEFAULT_DB_URL = "mongodb://mongoadmin:secret@127.0.0.1:27017/db?authSource=admin"
     settings = get_settings()
     database_uri = settings.get("api", {}).get("database_uri")
 

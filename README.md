@@ -27,12 +27,16 @@ This is the FastAPI ASGI application.
    ```bash
    uv sync
    ```
-3. Start development server (and read logs in the terminal):
+3. Run services with Docker Compose:
+   ```bash
+   docker compose up --wait db unoserver cups
+   ```
+4. Start development server (and read logs in the terminal):
    ```bash
    uv run -m src.api --reload
    ```
    > Follow the provided instructions (if needed).
-4. Open in the browser: http://localhost:8011
+5. Open in the browser: http://localhost:8011
    > The api will be reloaded when you edit the code
 
 > [!IMPORTANT]

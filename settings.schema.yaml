@@ -30,7 +30,7 @@ $defs:
       database_uri:
         description: MongoDB database settings
         examples:
-        - mongodb://mongoadmin:secret@localhost:27017/db?authSource=admin
+        - mongodb://mongoadmin:secret@127.0.0.1:27017/db?authSource=admin
         - mongodb://mongoadmin:secret@db:27017/db?authSource=admin
         format: password
         title: Database Uri
@@ -54,9 +54,8 @@ $defs:
         description: CUPS hostname, if None then /run/cups-socket/cups.sock will be
           used
         examples:
-        - localhost
-        - cups
         - 127.0.0.1
+        - cups
         title: Cups Server
       cups_port:
         default: 631
@@ -128,7 +127,7 @@ $defs:
       database_uri:
         description: MongoDB database settings for FSM
         examples:
-        - mongodb://mongoadmin:secret@localhost:27017/db?authSource=admin
+        - mongodb://mongoadmin:secret@127.0.0.1:27017/db?authSource=admin
         - mongodb://mongoadmin:secret@db:27017/db?authSource=admin
         format: password
         title: Database Uri

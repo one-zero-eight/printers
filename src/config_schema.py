@@ -46,7 +46,7 @@ class ApiSettings(SettingBaseModel):
     'Prefix for the API path (e.g. "/api/v0")'
     database_uri: SecretStr = Field(
         examples=[
-            "mongodb://mongoadmin:secret@localhost:27017/db?authSource=admin",
+            "mongodb://mongoadmin:secret@127.0.0.1:27017/db?authSource=admin",
             "mongodb://mongoadmin:secret@db:27017/db?authSource=admin",
         ]
     )
@@ -57,7 +57,7 @@ class ApiSettings(SettingBaseModel):
     "Unoserver server network port"
     cups_server: str | None = Field(
         default=None,
-        examples=["localhost", "cups", "127.0.0.1"],
+        examples=["127.0.0.1", "cups"],
     )
     "CUPS hostname, if None then /run/cups-socket/cups.sock will be used"
     cups_port: int = 631
@@ -85,7 +85,7 @@ class BotSettings(SettingBaseModel):
     "Print API url"
     database_uri: SecretStr = Field(
         examples=[
-            "mongodb://mongoadmin:secret@localhost:27017/db?authSource=admin",
+            "mongodb://mongoadmin:secret@127.0.0.1:27017/db?authSource=admin",
             "mongodb://mongoadmin:secret@db:27017/db?authSource=admin",
         ]
     )
