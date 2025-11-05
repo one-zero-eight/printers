@@ -5,8 +5,7 @@ from pydantic import TypeAdapter
 
 from src.config import settings
 from src.config_schema import Printer, Scanner
-from src.modules.printing.entity_models import JobAttributes, PrinterStatus, PrintingOptions
-from src.modules.printing.routes import PreparePrintingResponse
+from src.modules.printing.entity_models import JobAttributes, PreparePrintingResponse, PrinterStatus, PrintingOptions
 from src.modules.scanning.entity_models import ScanningOptions, ScanningResult
 
 

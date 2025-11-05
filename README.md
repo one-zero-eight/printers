@@ -38,6 +38,11 @@ This is the FastAPI ASGI application.
    > Follow the provided instructions (if needed).
 5. Open in the browser: http://localhost:8011
    > The api will be reloaded when you edit the code
+6. Open new terminal and run bot:
+   ```bash
+   uv run -m src.bot
+   ```
+   > The bot will NOT be reloaded when you edit the code
 
 > [!IMPORTANT]
 > For endpoints requiring authorization click "Authorize" button in Swagger UI

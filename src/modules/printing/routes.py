@@ -14,17 +14,11 @@ from src.api.logging_ import logger
 from src.config import settings
 from src.config_schema import Printer
 from src.modules.converting.repository import converting_repository
-from src.modules.printing.entity_models import JobAttributes, PrinterStatus, PrintingOptions
+from src.modules.printing.entity_models import JobAttributes, PreparePrintingResponse, PrinterStatus, PrintingOptions
 from src.modules.printing.repository import printing_repository
-from src.pydantic_base import BaseSchema
 
 router = APIRouter(prefix="/print", tags=["Print"])
 tempfiles: dict[tuple[str, str], Any] = {}
-
-
-class PreparePrintingResponse(BaseSchema):
-    filename: str
-    pages: int
 
 
 @router.get("/job_status")

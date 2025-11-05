@@ -484,3 +484,8 @@ class PrinterStatus(BaseSchema):
     offline: bool
     paper_percentage: int | None
     toner_percentage: int | None
+
+
+class PreparePrintingResponse(BaseSchema):
+    filename: str
+    pages: int
