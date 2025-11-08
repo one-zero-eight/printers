@@ -2,8 +2,9 @@ from aiogram import html
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, ErrorEvent, Message
 
+from src.bot.logging_ import logger
 from src.config import settings
 
 MAX_WIDTH_FILLER = " " * 100 + "&#x200D;"
@@ -57,3 +58,21 @@ async def go_to_default_state(callback_or_message: CallbackQuery | Message, stat
         html.bold("🖨 We are ready to print or scan!\n")
         + "Just send something to be printed or send /scan to start scanning"
     )
+
+
+async def usual_error_answer(event: ErrorEvent):
+    answer = None
+    if "message to delete" in str(event.exception):
+        answer = (
+            "A necessary message was lost 🤔\n\n"
+            + "Ignore if everything looks good\n"
+            + html.bold("Otherwise, try to send the file or /scan again\n")
+        )
+    elif "Server disconnected" in str(event.exception):
+        answer = "Telegram has issues with handling our service now 📉\n\n" + html.bold(
+            "Try to send the file or /scan again"
+        )
+    elif "Request timeout" in str(event.exception):
+        answer = "Telegram or our API is busy now 📉\n\n" + html.bold("Try to send the file or /scan again")
+    logger.error(f"{event.exception}")
+    return answer

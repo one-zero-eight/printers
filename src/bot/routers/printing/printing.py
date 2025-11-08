@@ -141,7 +141,12 @@ async def cancel_print_configuration_handler(callback: CallbackQuery, state: FSM
     data = await state.get_data()
     await discard_job_settings_message(data, callback.message, state, bot)
     assert "filename" in data
-    await api_client.cancel_not_started_job(callback.message.chat.id, data["filename"])
+    try:
+        await api_client.cancel_not_started_job(callback.message.chat.id, data["filename"])
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code != 404:
+            raise e
+        logger.warning(f"Failed to find a file to delete: {e}")
     try:
         if isinstance(callback.message, Message):
             await callback.message.edit_caption(

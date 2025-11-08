@@ -19,7 +19,7 @@ class InNoHasslePrintAPI:
         client = httpx.AsyncClient(
             base_url=self.api_root_path,
             headers={"Authorization": f"Bearer {telegram_id}:{settings.bot.bot_token.get_secret_value()}"},
-            timeout=httpx.Timeout(None),
+            timeout=httpx.Timeout(10),
         )
         return client
 
@@ -28,7 +28,7 @@ class InNoHasslePrintAPI:
     ) -> PreparePrintingResponse:
         files = {"file": (document_name, document, "application/octet-stream")}
         async with self._create_client(telegram_id) as client:
-            response = await client.post("/print/prepare", files=files, timeout=httpx.Timeout(None))
+            response = await client.post("/print/prepare", files=files)
             response.raise_for_status()
             return PreparePrintingResponse.model_validate(response.json())
 
@@ -39,11 +39,7 @@ class InNoHasslePrintAPI:
         data = {"printing_options": printing_options.model_dump(by_alias=True)}
         async with self._create_client(telegram_id) as client:
             response = await client.post(
-                "/print/print",
-                params=params,
-                json=data,
-                headers={"Content-Type": "application/json"},
-                timeout=httpx.Timeout(None),
+                "/print/print", params=params, json=data, headers={"Content-Type": "application/json"}
             )
             response.raise_for_status()
             return response.json()
@@ -51,7 +47,7 @@ class InNoHasslePrintAPI:
     async def check_job(self, telegram_id: int, job_id: int) -> JobAttributes:
         params = {"job_id": job_id}
         async with self._create_client(telegram_id) as client:
-            response = await client.get("/print/job_status", params=params, timeout=httpx.Timeout(None))
+            response = await client.get("/print/job_status", params=params)
             response.raise_for_status()
             return JobAttributes.model_validate(response.json())
 
@@ -70,7 +66,7 @@ class InNoHasslePrintAPI:
     async def get_prepared_document(self, telegram_id: int, document_name: str) -> bytes:
         params = {"filename": document_name}
         async with self._create_client(telegram_id) as client:
-            response = await client.get("/print/get_file", params=params, timeout=httpx.Timeout(None))
+            response = await client.get("/print/get_file", params=params)
             response.raise_for_status()
             return response.content
 
@@ -134,9 +130,7 @@ class InNoHasslePrintAPI:
         params = {"scanner_name": scanner.name}
         data = {"scanning_options": scanning_options.model_dump(by_alias=True)}
         async with self._create_client(telegram_id) as client:
-            response = await client.post(
-                "/scan/manual/start_scan", params=params, json=data, timeout=httpx.Timeout(None)
-            )
+            response = await client.post("/scan/manual/start_scan", params=params, json=data)
             response.raise_for_status()
             return response.json()
 
@@ -153,14 +147,14 @@ class InNoHasslePrintAPI:
         if prev_filename:
             params["prev_filename"] = prev_filename
         async with self._create_client(telegram_id) as client:
-            response = await client.post("/scan/manual/wait_and_merge", params=params, timeout=httpx.Timeout(None))
+            response = await client.post("/scan/manual/wait_and_merge", params=params)
             response.raise_for_status()
             return ScanningResult.model_validate(response.json())
 
     async def remove_last_page_manual_scan(self, telegram_id: int, filename: str) -> ScanningResult:
         params = {"filename": filename}
         async with self._create_client(telegram_id) as client:
-            response = await client.post("/scan/manual/remove_last_page", params=params, timeout=httpx.Timeout(None))
+            response = await client.post("/scan/manual/remove_last_page", params=params)
             response.raise_for_status()
             return ScanningResult.model_validate(response.json())
 

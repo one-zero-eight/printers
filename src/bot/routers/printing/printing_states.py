@@ -3,8 +3,10 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
+from httpx import HTTPStatusError
 
 from src.bot.api import api_client
+from src.bot.logging_ import logger
 from src.bot.routers.printing.printing_tools import discard_job_settings_message, format_printing_message
 
 
@@ -46,7 +48,12 @@ async def gracefully_interrupt_printing_state(
             except TelegramBadRequest:
                 pass
         if "filename" in data:
-            await api_client.cancel_not_started_job(message.chat.id, data["filename"])
+            try:
+                await api_client.cancel_not_started_job(message.chat.id, data["filename"])
+            except HTTPStatusError as e:
+                if e.response.status_code != 404:
+                    raise e
+                logger.warning(f"Failed to find a file to delete: {e}")
     elif current_state == PrintWork.printing:
         if "job_id" in data:
             job_attributes = await api_client.check_job(message.chat.id, data["job_id"])

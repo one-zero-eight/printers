@@ -1,14 +1,13 @@
 import asyncio
 
 import motor.motor_asyncio
-from aiogram import Bot
+from aiogram import Bot, html
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.storage.mongo import MongoStorage
 from aiogram.types import ErrorEvent
-from aiogram.utils.markdown import hblockquote
 
 import src.bot.logging_  # noqa: F401
 from src.bot.dispatcher import CustomDispatcher
@@ -27,6 +26,7 @@ from src.bot.routers.scanning.scan_settings.scanner_setup import router as scan_
 from src.bot.routers.scanning.scan_settings.sides_setup import router as scan_sides_setup_router
 from src.bot.routers.scanning.scanning import router as scanning_router
 from src.bot.routers.unauthenticated import router as unauthenticated_router
+from src.bot.shared_messages import usual_error_answer
 from src.config import settings
 
 
@@ -42,7 +42,7 @@ async def main() -> None:
         logger.info("Using proxy")
         session = AiohttpSession(proxy=settings.bot.proxy_url.get_secret_value())
     else:
-        session = None
+        session = AiohttpSession(timeout=10)
     bot = Bot(
         token=settings.bot.bot_token.get_secret_value(),
         session=session,
@@ -59,11 +59,23 @@ async def main() -> None:
     async def unhandled_error(event: ErrorEvent):
         message = event.update.callback_query.message if event.update.callback_query else event.update.message
         try:
-            await message.answer(
-                f"Unknown error ⚠️\n{hblockquote(event.exception)}\nTry /start", disable_web_page_preview=True
-            )
+            if not (usual_answer := await usual_error_answer(event)):
+                await message.reply(
+                    "Error 🙁\n\n"
+                    + html.bold("Try to send the file or /scan again\n")
+                    + "Use /start if the error persists\n\n"
+                    + f"{html.spoiler(f'For developers: {event.exception}')}",
+                    disable_web_page_preview=True,
+                )
+            else:
+                await message.reply(usual_answer, disable_web_page_preview=True)
         except TelegramBadRequest:
-            await message.answer("Unknown error ⚠️\nTry /start", disable_web_page_preview=True)
+            await message.reply(
+                "Unknown error ⚠️\n"
+                + html.bold("Try to send the file or /scan again\n")
+                + "Use /start if the error persists",
+                disable_web_page_preview=True,
+            )
         raise  # noqa: PLE0704
 
     for router in (
