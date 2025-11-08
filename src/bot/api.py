@@ -15,11 +15,11 @@ class InNoHasslePrintAPI:
     def __init__(self, api_url):
         self.api_root_path = api_url
 
-    def _create_client(self, telegram_id) -> httpx.AsyncClient:
+    def _create_client(self, telegram_id, timeout: float | None = 10) -> httpx.AsyncClient:
         client = httpx.AsyncClient(
             base_url=self.api_root_path,
             headers={"Authorization": f"Bearer {telegram_id}:{settings.bot.bot_token.get_secret_value()}"},
-            timeout=httpx.Timeout(10),
+            timeout=httpx.Timeout(timeout),
         )
         return client
 
@@ -27,7 +27,7 @@ class InNoHasslePrintAPI:
         self, telegram_id: int, document_name: str, document: io.BytesIO
     ) -> PreparePrintingResponse:
         files = {"file": (document_name, document, "application/octet-stream")}
-        async with self._create_client(telegram_id) as client:
+        async with self._create_client(telegram_id, 60 * 5) as client:
             response = await client.post("/print/prepare", files=files)
             response.raise_for_status()
             return PreparePrintingResponse.model_validate(response.json())
@@ -65,7 +65,7 @@ class InNoHasslePrintAPI:
 
     async def get_prepared_document(self, telegram_id: int, document_name: str) -> bytes:
         params = {"filename": document_name}
-        async with self._create_client(telegram_id) as client:
+        async with self._create_client(telegram_id, 60 * 5) as client:
             response = await client.get("/print/get_file", params=params)
             response.raise_for_status()
             return response.content

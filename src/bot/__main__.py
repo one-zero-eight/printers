@@ -42,7 +42,7 @@ async def main() -> None:
         logger.info("Using proxy")
         session = AiohttpSession(proxy=settings.bot.proxy_url.get_secret_value())
     else:
-        session = AiohttpSession(timeout=10)
+        session = None
     bot = Bot(
         token=settings.bot.bot_token.get_secret_value(),
         session=session,
@@ -59,19 +59,18 @@ async def main() -> None:
     async def unhandled_error(event: ErrorEvent):
         message = event.update.callback_query.message if event.update.callback_query else event.update.message
         try:
-            if not (usual_answer := await usual_error_answer(event)):
+            if usual_answer := await usual_error_answer(event):
+                await message.reply(usual_answer, disable_web_page_preview=True)
+            else:
                 await message.reply(
                     "Error 🙁\n\n"
                     + html.bold("Try to send the file or /scan again\n")
-                    + "Use /start if the error persists\n\n"
-                    + f"{html.spoiler(f'For developers: {event.exception}')}",
-                    disable_web_page_preview=True,
+                    + "Use /start if the error persists"
+                    + (f"\n\n{html.spoiler(f'For developers: {event.exception}')}" if str(event.exception) else "")
                 )
-            else:
-                await message.reply(usual_answer, disable_web_page_preview=True)
         except TelegramBadRequest:
             await message.reply(
-                "Unknown error ⚠️\n"
+                "Unknown error ⚠️\n\n"
                 + html.bold("Try to send the file or /scan again\n")
                 + "Use /start if the error persists",
                 disable_web_page_preview=True,

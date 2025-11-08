@@ -76,8 +76,15 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
         return
 
     msg = await message.answer("Downloading...")
+    await state.update_data(confirmation_message_id=msg.message_id)
+    await state.set_state(PrintWork.settings_menu)
     file = io.BytesIO()
     await bot.download(file=file_telegram_identifier, destination=file)
+
+    if (await state.get_data()).get("confirmation_message_id", None) != msg.message_id:
+        logger.warning("The confirmation message was changed")
+        await msg.edit_text(text=f"{html.bold("You've cancelled this print work 🤷‍♀️")}")
+        return
 
     await msg.edit_text("Converting document to PDF...")
     try:
@@ -103,22 +110,26 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
             return
         raise
 
+    if (await state.get_data()).get("confirmation_message_id", None) != msg.message_id:
+        logger.warning("The confirmation message was changed")
+        await msg.edit_text(text=f"{html.bold("You've cancelled this print work 🤷‍♀️")}")
+        return
+
     await msg.edit_text("Uploading...")
     data = await state.update_data(
-        pages=result.pages,
-        filename=result.filename,
-        copies="1",
-        page_ranges=None,
-        sides="one-sided",
-        number_up="1",
-        confirmation_message_id=msg.message_id,
+        pages=result.pages, filename=result.filename, copies="1", page_ranges=None, sides="one-sided", number_up="1"
     )
     assert "filename" in data
     printer = await api_client.get_printer(message.chat.id, data.get("printer"))
     printer_status = await api_client.get_printer_status(message.chat.id, printer.cups_name if printer else None)
     caption, markup = format_draft_message(data, printer_status, status_of_document="Uploading...")
+
+    if (await state.get_data()).get("confirmation_message_id", None) != msg.message_id:
+        logger.warning("The confirmation message was changed")
+        await msg.edit_text(text=f"{html.bold("You've cancelled this print work 🤷‍♀️")}")
+        return
+
     await msg.edit_text(text=caption, reply_markup=markup if data.get("printer") is not None else None)
-    await state.set_state(PrintWork.settings_menu)
 
     # Start printer choice if printer is not set
     if data.get("printer") is None:
@@ -128,10 +139,22 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
     document = await api_client.get_prepared_document(message.chat.id, data["filename"])
     input_file = BufferedInputFile(document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf")
     caption, markup = format_draft_message(data, printer_status)
-    await msg.edit_media(
-        aiogram.types.InputMediaDocument(media=input_file, caption=caption),
-        reply_markup=markup if data.get("printer") is not None else None,
-    )
+    try:
+        await msg.edit_media(
+            aiogram.types.InputMediaDocument(media=input_file, caption=caption),
+            reply_markup=markup if data.get("printer") is not None else None,
+        )
+    except Exception as e:
+        logger.error(f"Failed to attach the prepared document: {e}", exc_info=True)
+    data = await state.get_data()
+
+    if data.get("confirmation_message_id", None) != msg.message_id:
+        logger.warning("The confirmation message was changed")
+        await msg.edit_text(text=f"{html.bold("You've cancelled this print work 🤷‍♀️")}")
+        return
+
+    caption, markup = format_draft_message(data, printer_status)
+    await msg.edit_caption(caption=caption, reply_markup=markup)
 
 
 @router.callback_query(CallbackFromConfirmationMessageFilter(), MenuCallback.filter(F.menu == "cancel"))
