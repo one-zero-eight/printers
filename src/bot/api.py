@@ -146,7 +146,7 @@ class InNoHasslePrintAPI:
         params = {"scanner_name": scanner.name, "job_id": job_id}
         if prev_filename:
             params["prev_filename"] = prev_filename
-        async with self._create_client(telegram_id) as client:
+        async with self._create_client(telegram_id, 60 * 5) as client:
             response = await client.post("/scan/manual/wait_and_merge", params=params)
             response.raise_for_status()
             return ScanningResult.model_validate(response.json())
