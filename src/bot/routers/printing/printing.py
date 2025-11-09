@@ -154,7 +154,10 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
         return
 
     caption, markup = format_draft_message(data, printer_status)
-    await msg.edit_caption(caption=caption, reply_markup=markup)
+    try:
+        await msg.edit_caption(caption=caption, reply_markup=markup)
+    except aiogram.exceptions.TelegramBadRequest:
+        pass
 
 
 @router.callback_query(CallbackFromConfirmationMessageFilter(), MenuCallback.filter(F.menu == "cancel"))
