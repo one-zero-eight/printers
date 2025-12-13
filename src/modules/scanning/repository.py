@@ -21,6 +21,7 @@ SCAN_OPTIONS_TEMPLATE = """
     <scan:InputSource>{input_source}</scan:InputSource>
     <scan:Duplex>{sides}</scan:Duplex>
     <scan:AdfOption>Duplex</scan:AdfOption>
+    <scan:EdgeAutoDetection>true</scan:EdgeAutoDetection>
     <scan:ColorMode>RGB24</scan:ColorMode>
     <scan:XResolution>{quality}</scan:XResolution>
     <scan:YResolution>{quality}</scan:YResolution>
