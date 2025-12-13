@@ -1,6 +1,7 @@
 import math
 from typing import Literal, assert_never
 
+import aiogram.exceptions
 from aiogram import Bot, html
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters.callback_data import CallbackData
