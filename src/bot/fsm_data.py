@@ -23,6 +23,7 @@ class FSMData(TypedDict, total=False):
     scanner: str
     quality: Literal["200", "300", "400", "600"]
     scan_sides: Literal["false", "true"]
+    crop: Literal["false", "true"]
     scan_filename: str | None
     scan_result_pages_count: int | None
     scan_job_id: str

@@ -10,7 +10,7 @@ from src.config_schema import Scanner
 
 
 class ScanConfigureCallback(CallbackData, prefix="scan_menu"):
-    menu: Literal["mode", "scanner", "quality", "sides", "cancel", "start"]
+    menu: Literal["mode", "scanner", "quality", "sides", "crop", "cancel", "start"]
 
 
 class ScanningCallback(CallbackData, prefix="scanning"):
@@ -25,6 +25,7 @@ def format_configure_message(data: FSMData, scanner: Scanner | None) -> tuple[st
     assert "mode" in data
     assert "quality" in data
     assert "scan_sides" in data
+    assert "crop" in data
 
     def empty_inline_space_remainder(string):
         return string + " " * (100 - len(string)) + "."
@@ -35,6 +36,7 @@ def format_configure_message(data: FSMData, scanner: Scanner | None) -> tuple[st
     display_scanner = empty_inline_space_remainder(f"✏️ {scanner.display_name if scanner else '—'}")
     display_quality = empty_inline_space_remainder(f"✏️ {data['quality']} DPI")
     display_sides = empty_inline_space_remainder(f"✏️ {'One side' if data['scan_sides'] == 'false' else 'Both sides'}")
+    display_crop = empty_inline_space_remainder(f"✏️ {'Disabled' if data['crop'] == 'false' else 'Enabled'}")
     markup = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -48,6 +50,10 @@ def format_configure_message(data: FSMData, scanner: Scanner | None) -> tuple[st
             [
                 InlineKeyboardButton(text="Quality", callback_data=ScanConfigureCallback(menu="quality").pack()),
                 InlineKeyboardButton(text=display_quality, callback_data=ScanConfigureCallback(menu="quality").pack()),
+            ],
+            [
+                InlineKeyboardButton(text="Auto-Crop", callback_data=ScanConfigureCallback(menu="crop").pack()),
+                InlineKeyboardButton(text=display_crop, callback_data=ScanConfigureCallback(menu="crop").pack()),
             ],
             [
                 InlineKeyboardButton(text="Scan from", callback_data=ScanConfigureCallback(menu="sides").pack()),

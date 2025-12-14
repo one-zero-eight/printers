@@ -16,6 +16,7 @@ class ScanWork(StatesGroup):
     setup_quality = State()
     setup_scanner = State()
     setup_sides = State()
+    setup_crop = State()
 
     scanning = State()
     pause_menu = State()

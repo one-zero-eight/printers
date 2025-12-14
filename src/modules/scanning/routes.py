@@ -14,9 +14,11 @@ from src.config import settings
 from src.config_schema import Scanner
 from src.modules.scanning.entity_models import ScanningOptions, ScanningResult
 from src.modules.scanning.repository import scanning_repository
+from src.modules.scanning.tools.auto_crop import autocrop_pdf_bytes
 
 router = APIRouter(prefix="/scan", tags=["Scan"])
 tempfiles: dict[tuple[str, str], Any] = {}
+job_options: dict[tuple[str, str], ScanningOptions] = {}
 
 
 @router.get("/get_scanners")
@@ -35,7 +37,7 @@ def get_file(filename: str, innohassle_user_id: USER_AUTH) -> FileResponse:
 
 @router.post("/manual/start_scan")
 async def manual_start_scan(
-    _innohassle_user_id: USER_AUTH,
+    innohassle_user_id: USER_AUTH,
     scanner_name: str,
     scanning_options: ScanningOptions = Body(ScanningOptions(), embed=True),
 ) -> str | None:
@@ -45,6 +47,7 @@ async def manual_start_scan(
     job_id = await scanning_repository.start_scan_one(scanner, scanning_options)
     if not job_id:
         raise HTTPException(503, "Scanner is busy or not available")
+    job_options[(innohassle_user_id, job_id)] = scanning_options
     return job_id
 
 
@@ -77,6 +80,9 @@ async def manual_wait_and_merge(
     document = await scanning_repository.fetch_scan_one(scanner, job_id)
     if not document:
         raise HTTPException(503, "Scanner is busy or not available")
+    if job_options[(innohassle_user_id, job_id)].crop == "true":
+        document = autocrop_pdf_bytes(document)
+        del job_options[(innohassle_user_id, job_id)]
 
     if prev_filename:
         # Merge documents tempfile_f and document to out_f using PyPDF2

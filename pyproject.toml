@@ -29,6 +29,8 @@ dependencies = [
     "cachetools>=5.5.2",
     "aiogram-media-group>=0.5.1",
     "aiohttp-socks>=0.10.1",
+    "docaligner-docsaid>=1.1.0",
+    "pymupdf>=1.26.7",
 ]
 
 [dependency-groups]
@@ -42,7 +44,7 @@ default-groups = ["mongo"]
 line-length = 120
 lint.extend-select = ["I", "UP", "PL"]
 lint.extend-ignore = ["PLC0415", "PLR"]
-exclude = ["*.pyi"]
+exclude = ["*.pyi", "auto_crop.py"]
 target-version = "py313"
 
 [tool.pyright]

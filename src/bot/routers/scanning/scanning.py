@@ -11,6 +11,7 @@ from src.bot.api import api_client
 from src.bot.entry_filters import CallbackFromConfirmationMessageFilter
 from src.bot.interrupts import gracefully_interrupt_state
 from src.bot.routers.printing.printing_tools import discard_job_settings_message
+from src.bot.routers.scanning.scan_settings.crop_setup import start_scan_crop_setup
 from src.bot.routers.scanning.scan_settings.mode_setup import start_scan_mode_setup
 from src.bot.routers.scanning.scan_settings.quality_setup import start_quality_setup
 from src.bot.routers.scanning.scan_settings.scanner_setup import start_scanner_setup
@@ -35,10 +36,7 @@ async def command_scan_handler(message: Message, state: FSMContext, bot: Bot):
     await gracefully_interrupt_state(message, state, bot)
     await state.set_state(ScanWork.settings_menu)
 
-    data = await state.update_data(
-        quality="300",
-        scan_sides="false",
-    )
+    data = await state.update_data(quality="300", scan_sides="false", crop="false")
     if "mode" not in data:
         data = await state.update_data(mode=None)
     scanner = await api_client.get_scanner(message.chat.id, data.get("scanner"))
@@ -111,6 +109,7 @@ async def start_scan_handler(
     assert "confirmation_message_id" in data
     assert "quality" in data
     assert "mode" in data
+    assert "crop" in data
 
     has_caption = data.get("scan_filename") is not None
 
@@ -143,6 +142,7 @@ async def start_scan_handler(
         sides="false" if data["mode"] == "manual" else data.get("scan_sides", "false"),
         quality=data["quality"],
         input_source="Platen" if data["mode"] == "manual" else "Adf",
+        crop=data["crop"],
     )
     try:
         scan_job_id = await api_client.start_manual_scan(callback.message.chat.id, scanner, scanning_options)
@@ -288,6 +288,10 @@ async def switch_settings_option(
 ):
     await callback.answer()
     await discard_job_settings_message(await state.get_data(), callback.message, state, bot)
-    await [start_scan_mode_setup, start_scanner_setup, start_quality_setup, start_scan_sides_setup][
-        get_args(ScanConfigureCallback.model_fields["menu"].annotation).index(callback_data.menu)
-    ](callback, state, bot)
+    await [
+        start_scan_mode_setup,
+        start_scanner_setup,
+        start_quality_setup,
+        start_scan_sides_setup,
+        start_scan_crop_setup,
+    ][get_args(ScanConfigureCallback.model_fields["menu"].annotation).index(callback_data.menu)](callback, state, bot)
