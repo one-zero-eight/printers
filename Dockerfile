@@ -27,7 +27,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libcups2 \
         cups-client \
-        libturbojpeg \
+        libturbojpeg0 \
         exiftool \
         ffmpeg \
         libheif-dev \
