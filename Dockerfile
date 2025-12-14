@@ -36,6 +36,9 @@ RUN apt-get update \
 # Copy the applicant from the builder
 COPY --from=builder /app /app
 
+# Capybara downloads fonts to this directory
+RUN chmod -R 777 /app/.venv/lib/python3.*/site-packages/capybara/vision/visualization/
+
 # Create user with the name uv
 RUN groupadd -g 1500 uv && \
     useradd -m -u 1500 -g uv uv
