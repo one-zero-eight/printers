@@ -23,8 +23,15 @@ FROM python:3.12-slim-bookworm AS production
 
 ENV PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends libcups2 cups-client && rm -rf /var/lib/apt/lists/*
-RUN sudo apt install libturbojpeg exiftool ffmpeg libheif-dev
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libcups2 \
+        cups-client \
+        libturbojpeg \
+        exiftool \
+        ffmpeg \
+        libheif-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy the applicant from the builder
 COPY --from=builder /app /app
