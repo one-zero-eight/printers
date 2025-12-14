@@ -4,6 +4,16 @@
 # docker compose up --build --wait
 
 services:
+  bot:
+    build: .
+    restart: no
+    depends_on:
+      api:
+        condition: service_started
+    volumes:
+      - "./settings.yaml:/app/settings.yaml:ro" # Read-only settings file
+    command: [ "python3", "-m", "src.bot" ]
+
   api:
     build: .
     restart: no

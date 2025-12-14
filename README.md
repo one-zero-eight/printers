@@ -72,7 +72,7 @@ We use Docker with Docker Compose plugin to run the service on servers.
 4. Change settings in the `settings.yaml` file according to your needs
    (check [settings.schema.yaml](settings.schema.yaml) for more info)
 5. Install Docker with Docker Compose
-6. Run the containers: `docker compose up --build --wait`
+6. Run the containers: `docker compose --profile cups up --build --wait`
 7. Check the logs: `docker compose logs -f`
 
 
