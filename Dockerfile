@@ -36,8 +36,8 @@ RUN apt-get update \
 # Copy the applicant from the builder
 COPY --from=builder /app /app
 
-# Capybara downloads fonts to this directory
-RUN chmod -R 777 /app/.venv/lib/python3.*/site-packages/capybara/vision/visualization/
+# Fonts directory, onnx models directory
+RUN chmod -R 777 /app/.venv/lib/python3.*/site-packages/capybara/vision/visualization/ /app/.venv/lib/python3.*/site-packages/docaligner/heatmap_reg/ckpt/
 
 # Create user with the name uv
 RUN groupadd -g 1500 uv && \
