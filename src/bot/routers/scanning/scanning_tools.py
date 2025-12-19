@@ -18,7 +18,7 @@ class ScanningCallback(CallbackData, prefix="scanning"):
 
 
 class ScanningPausedCallback(CallbackData, prefix="scanning_paused"):
-    menu: Literal["remove-last", "scan-more", "scan-new", "finish"]
+    menu: Literal["remove-last", "scan-more", "scan-new", "finish", "rename"]
 
 
 def format_configure_message(data: FSMData, scanner: Scanner | None) -> tuple[str, InlineKeyboardMarkup]:
@@ -174,6 +174,9 @@ def format_scanning_paused_message(
                 InlineKeyboardButton(
                     text="Remove last page", callback_data=ScanningPausedCallback(menu="remove-last").pack()
                 ),
+                InlineKeyboardButton(text="✏️ Rename", callback_data=ScanningPausedCallback(menu="rename").pack()),
+            ],
+            [
                 InlineKeyboardButton(text="🏁 Finish", callback_data=ScanningPausedCallback(menu="finish").pack()),
             ],
         ]

@@ -20,6 +20,7 @@ class ScanWork(StatesGroup):
 
     scanning = State()
     pause_menu = State()
+    rename = State()
 
 
 async def gracefully_interrupt_scanning_state(

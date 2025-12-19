@@ -27,3 +27,5 @@ class FSMData(TypedDict, total=False):
     scan_filename: str | None
     scan_result_pages_count: int | None
     scan_job_id: str
+    scan_custom_filename: str | None
+    rename_prompt_message_id: int
