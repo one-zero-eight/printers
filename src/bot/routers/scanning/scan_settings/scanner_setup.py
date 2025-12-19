@@ -1,5 +1,4 @@
 from aiogram import Bot, F, Router, html
-from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
@@ -59,18 +58,14 @@ async def apply_settings_scanner(callback: CallbackQuery, callback_data: Scanner
     assert "confirmation_message_id" in data
     scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     text, markup = format_configure_message(data, scanner)
-    try:
-        await bot.edit_message_text(
-            text=text,
-            chat_id=callback.message.chat.id,
-            message_id=data["confirmation_message_id"],
-            reply_markup=markup if data.get("mode") is not None else None,
-        )
-    except TelegramBadRequest:
-        pass
-
     if data.get("mode") is not None:
         await state.set_state(ScanWork.settings_menu)
     else:
         # Start mode choice
         await start_scan_mode_setup(callback, state, bot)
+    await bot.edit_message_text(
+        text=text,
+        chat_id=callback.message.chat.id,
+        message_id=data["confirmation_message_id"],
+        reply_markup=markup if data.get("mode") is not None else None,
+    )

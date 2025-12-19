@@ -2,9 +2,7 @@ import asyncio
 from collections.abc import Sequence
 from typing import assert_never
 
-import aiogram.exceptions
 from aiogram import Bot, F, Router, html
-from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State
 from aiogram.types import (
@@ -71,17 +69,14 @@ async def apply_settings_printer(callback: CallbackQuery, callback_data: Printer
     assert "printer" in data
     assert "confirmation_message_id" in data
     printer_status = await api_client.get_printer_status(callback.message.chat.id, data.get("printer"))
-    try:
-        caption, markup = format_draft_message(data, printer_status)
-        await bot.edit_message_caption(
-            caption=caption,
-            chat_id=callback.message.chat.id,
-            message_id=data["confirmation_message_id"],
-            reply_markup=markup,
-        )
-    except aiogram.exceptions.TelegramBadRequest:
-        pass
+    caption, markup = format_draft_message(data, printer_status)
     await state.set_state(PrintWork.settings_menu)
+    await bot.edit_message_caption(
+        caption=caption,
+        chat_id=callback.message.chat.id,
+        message_id=data["confirmation_message_id"],
+        reply_markup=markup,
+    )
 
 
 def printers_keyboard(printers: Sequence[PrinterStatus | Printer]) -> InlineKeyboardMarkup:
@@ -131,11 +126,8 @@ async def update_printer_statuses(
         new_reply_markup = printers_keyboard(printers)
         if await state.get_state() != checkable_state:
             return
-        try:
-            await bot.edit_message_reply_markup(
-                chat_id=chat_id,
-                message_id=message_id,
-                reply_markup=new_reply_markup,
-            )
-        except TelegramBadRequest:
-            pass
+        await bot.edit_message_reply_markup(
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=new_reply_markup,
+        )

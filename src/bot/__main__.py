@@ -14,11 +14,11 @@ from src.bot.dispatcher import CustomDispatcher
 from src.bot.logging_ import logger
 from src.bot.middlewares import ChatActionMiddleware, LogAllEventsMiddleware
 from src.bot.routers.globals import router as globals_router
-from src.bot.routers.print_settings.copies_setup import router as print_copies_setup_router
-from src.bot.routers.print_settings.layout_setup import router as print_layout_setup_router
-from src.bot.routers.print_settings.pages_setup import router as print_pages_setup_router
-from src.bot.routers.print_settings.printer_setup import router as print_printer_setup_router
-from src.bot.routers.print_settings.sides_setup import router as print_sides_setup_router
+from src.bot.routers.printing.print_settings.copies_setup import router as print_copies_setup_router
+from src.bot.routers.printing.print_settings.layout_setup import router as print_layout_setup_router
+from src.bot.routers.printing.print_settings.pages_setup import router as print_pages_setup_router
+from src.bot.routers.printing.print_settings.printer_setup import router as print_printer_setup_router
+from src.bot.routers.printing.print_settings.sides_setup import router as print_sides_setup_router
 from src.bot.routers.printing.printing import router as printing_router
 from src.bot.routers.scanning.scan_settings.crop_setup import router as scan_crop_setup_router
 from src.bot.routers.scanning.scan_settings.mode_setup import router as scan_mode_setup_router
@@ -58,6 +58,8 @@ async def main() -> None:
 
     @dispatcher.error()
     async def unhandled_error(event: ErrorEvent):
+        if event.exception.__class__ == TelegramBadRequest:
+            return
         message = event.update.callback_query.message if event.update.callback_query else event.update.message
         try:
             if usual_answer := await usual_error_answer(event):

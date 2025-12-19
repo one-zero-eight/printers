@@ -149,25 +149,22 @@ async def start_scan_handler(
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 503:
             await callback.message.answer("Scanner is busy. Try pressing Cancel button on the device and try again.")
-            try:
-                text, markup = format_scanning_paused_message(data, scanner)
-                if has_caption:
-                    await bot.edit_message_caption(
-                        caption=text,
-                        chat_id=callback.message.chat.id,
-                        message_id=data["confirmation_message_id"],
-                        reply_markup=markup,
-                    )
-                else:
-                    await bot.edit_message_text(
-                        text=text,
-                        chat_id=callback.message.chat.id,
-                        message_id=data["confirmation_message_id"],
-                        reply_markup=markup,
-                    )
-            except TelegramBadRequest:
-                pass
             await state.set_state(ScanWork.pause_menu)
+            text, markup = format_scanning_paused_message(data, scanner)
+            if has_caption:
+                await bot.edit_message_caption(
+                    caption=text,
+                    chat_id=callback.message.chat.id,
+                    message_id=data["confirmation_message_id"],
+                    reply_markup=markup,
+                )
+            else:
+                await bot.edit_message_text(
+                    text=text,
+                    chat_id=callback.message.chat.id,
+                    message_id=data["confirmation_message_id"],
+                    reply_markup=markup,
+                )
             return
         raise
     data = await state.update_data(scan_job_id=scan_job_id)
@@ -267,17 +264,14 @@ async def scanning_paused_finish_handler(callback: CallbackQuery, state: FSMCont
         await api_client.delete_scanned_file(callback.message.chat.id, data["scan_filename"])
 
     scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
-    try:
-        caption, markup = format_scanning_paused_message(data, scanner, is_finished=True)
-        await bot.edit_message_caption(
-            caption=caption,
-            chat_id=callback.message.chat.id,
-            message_id=data["confirmation_message_id"],
-            reply_markup=markup,
-        )
-    except TelegramBadRequest:
-        pass
+    caption, markup = format_scanning_paused_message(data, scanner, is_finished=True)
     await go_to_default_state(callback, state)
+    await bot.edit_message_caption(
+        caption=caption,
+        chat_id=callback.message.chat.id,
+        message_id=data["confirmation_message_id"],
+        reply_markup=markup,
+    )
 
 
 @router.callback_query(

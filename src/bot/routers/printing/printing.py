@@ -24,19 +24,21 @@ from src.bot.api import api_client
 from src.bot.entry_filters import CallbackFromConfirmationMessageFilter
 from src.bot.interrupts import gracefully_interrupt_state
 from src.bot.logging_ import logger
-from src.bot.routers.print_settings.copies_setup import start_copies_setup
-from src.bot.routers.print_settings.layout_setup import start_layout_setup
-from src.bot.routers.print_settings.pages_setup import start_pages_setup
-from src.bot.routers.print_settings.printer_setup import start_printer_setup
-from src.bot.routers.print_settings.sides_setup import start_sides_setup
+from src.bot.routers.printing.print_settings.copies_setup import start_copies_setup
+from src.bot.routers.printing.print_settings.layout_setup import start_layout_setup
+from src.bot.routers.printing.print_settings.pages_setup import start_pages_setup
+from src.bot.routers.printing.print_settings.printer_setup import start_printer_setup
+from src.bot.routers.printing.print_settings.sides_setup import start_sides_setup
 from src.bot.routers.printing.printing_states import PrintWork
 from src.bot.routers.printing.printing_tools import (
     MenuCallback,
     MenuDuringPrintingCallback,
     count_of_papers_to_print,
     discard_job_settings_message,
+    ensure_same_confirmation_message,
     format_draft_message,
     format_printing_message,
+    retrieve_sent_file_properties,
 )
 from src.modules.printing.entity_models import JobStateEnum, PrintingOptions
 
@@ -55,24 +57,8 @@ async def album_handler(messages: list[Message]):
 async def document_handler(message: Message, state: FSMContext, bot: Bot):
     await gracefully_interrupt_state(message, state, bot)
 
-    file_size = (
-        message.document.file_size if message.document else message.photo[-1].file_size if message.photo else None
-    )
-    file_telegram_identifier = (
-        message.document.file_id if message.document else message.photo[-1].file_id if message.photo else None
-    )
-    file_telegram_name = (
-        message.document.file_name if message.document else "Photo.png" if message.photo else "Text.txt"
-    )
-
-    if not file_telegram_name:
-        await message.answer("File name is not supported")
-        return
-    if not file_telegram_identifier:
-        await message.answer("No file was sent")
-        return
-    if file_size is None or file_size > 20 * 1024 * 1024:  # 20 MB
-        await message.answer(f"File is too large\n\nMaximum size is {html.bold('20 MB')}")
+    file_size, file_telegram_identifier, file_telegram_name = await retrieve_sent_file_properties(message)
+    if not all([file_size, file_telegram_identifier, file_telegram_name]):
         return
 
     msg = await message.answer("Downloading...")
@@ -81,54 +67,38 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
     file = io.BytesIO()
     await bot.download(file=file_telegram_identifier, destination=file)
 
-    if (await state.get_data()).get("confirmation_message_id", None) != msg.message_id:
-        logger.warning("The confirmation message was changed")
-        await msg.edit_text(text=f"{html.bold("You've cancelled this print work 🤷‍♀️")}")
-        return
-
+    await ensure_same_confirmation_message(msg, state)
     await msg.edit_text("Converting document to PDF...")
     try:
         result = await api_client.prepare_document(message.chat.id, file_telegram_name, file)
     except httpx.HTTPStatusError as e:
-        await msg.delete()
-        if e.response.status_code == 400:
-            await message.answer(
-                f"Unfortunately, we cannot print this file yet\n"
-                f"because of {html.bold(html.quote(e.response.json()['detail']))}\n\n"
-                f"Please, send a file of a supported type:\n"
-                f"{html.blockquote('.doc\n.docx\n.png\n.txt\n.jpg\n.md\n.bmp\n.xlsx\n.xls\n.odt\n.ods')}\n"
-                f"or convert the file to PDF manually and try again."
-            )
-            return
-        if e.response.status_code == 500:
-            await message.answer(
-                "An error occurred while converting the file.\n"
-                "The file may be corrupted or too large,"
-                " or the server may be overloaded.\n"
-                "Please convert the file to PDF manually and try again."
-            )
-            return
-        raise
-
-    if (await state.get_data()).get("confirmation_message_id", None) != msg.message_id:
-        logger.warning("The confirmation message was changed")
-        await msg.edit_text(text=f"{html.bold("You've cancelled this print work 🤷‍♀️")}")
+        if e.response.status_code not in (400, 500):
+            raise
+        await ensure_same_confirmation_message(msg, state)
+        await msg.edit_text(
+            f"Unfortunately, we cannot print this file yet\n"
+            f"because of {html.bold(html.quote(e.response.json()['detail']))}\n\n"
+            f"Please, send a file of a supported type:\n"
+            f"{html.blockquote('.doc\n.docx\n.png\n.txt\n.jpg\n.md\n.bmp\n.xlsx\n.xls\n.odt\n.ods')}\n"
+            f"or convert the file to PDF manually and try again."
+            if e.response.status_code == 400
+            else "An error occurred while converting the file.\n"
+            "The file may be corrupted or too large,"
+            " or the server may be overloaded.\n"
+            "Please convert the file to PDF manually and try again."
+        )
         return
 
+    await ensure_same_confirmation_message(msg, state)
     await msg.edit_text("Uploading...")
     data = await state.update_data(
         pages=result.pages, filename=result.filename, copies="1", page_ranges=None, sides="one-sided", number_up="1"
     )
-    assert "filename" in data
     printer = await api_client.get_printer(message.chat.id, data.get("printer"))
     printer_status = await api_client.get_printer_status(message.chat.id, printer.cups_name if printer else None)
+
+    await ensure_same_confirmation_message(msg, state)
     caption, markup = format_draft_message(data, printer_status, status_of_document="Uploading...")
-
-    if (await state.get_data()).get("confirmation_message_id", None) != msg.message_id:
-        logger.warning("The confirmation message was changed")
-        await msg.edit_text(text=f"{html.bold("You've cancelled this print work 🤷‍♀️")}")
-        return
-
     await msg.edit_text(text=caption, reply_markup=markup if data.get("printer") is not None else None)
 
     # Start printer choice if printer is not set
@@ -139,6 +109,7 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
     document = await api_client.get_prepared_document(message.chat.id, data["filename"])
     input_file = BufferedInputFile(document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf")
     caption, markup = format_draft_message(data, printer_status)
+    await ensure_same_confirmation_message(msg, state)
     try:
         await msg.edit_media(
             aiogram.types.InputMediaDocument(media=input_file, caption=caption),
@@ -146,18 +117,11 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
         )
     except Exception as e:
         logger.error(f"Failed to attach the prepared document: {e}", exc_info=True)
+
     data = await state.get_data()
-
-    if data.get("confirmation_message_id", None) != msg.message_id:
-        logger.warning("The confirmation message was changed")
-        await msg.edit_text(text=f"{html.bold("You've cancelled this print work 🤷‍♀️")}")
-        return
-
     caption, markup = format_draft_message(data, printer_status)
-    try:
-        await msg.edit_caption(caption=caption, reply_markup=markup)
-    except aiogram.exceptions.TelegramBadRequest:
-        pass
+    await ensure_same_confirmation_message(msg, state)
+    await msg.edit_caption(caption=caption, reply_markup=markup if data.get("printer") is not None else None)
 
 
 @router.callback_query(CallbackFromConfirmationMessageFilter(), MenuCallback.filter(F.menu == "cancel"))
@@ -173,14 +137,10 @@ async def cancel_print_configuration_handler(callback: CallbackQuery, state: FSM
         if e.response.status_code != 404:
             raise e
         logger.warning(f"Failed to find a file to delete: {e}")
-    try:
-        if isinstance(callback.message, Message):
-            await callback.message.edit_caption(
-                caption=f"{callback.message.caption}\n\n{html.bold("You've cancelled this print work 🤷‍♀️")}"
-            )
-    except aiogram.exceptions.TelegramBadRequest:
-        pass
     await shared_messages.go_to_default_state(callback, state)
+    await callback.message.edit_caption(
+        caption=f"{callback.message.caption}\n\n{html.bold("You've cancelled this print work 🤷‍♀️")}"
+    )
 
 
 @router.callback_query(CallbackFromConfirmationMessageFilter(), MenuCallback.filter(F.menu == "confirm"))
@@ -233,8 +193,7 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
             ]
         ]
     )
-    if isinstance(callback.message, Message):
-        await callback.message.edit_reply_markup(reply_markup=cancel_keyboard)
+    await callback.message.edit_reply_markup(reply_markup=cancel_keyboard)
 
     # Calculate maximum wait time
     paper_count = count_of_papers_to_print(
@@ -275,13 +234,9 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
         ]
 
         # Update message caption with all the information
-        try:
-            if isinstance(callback.message, Message):
-                await callback.message.edit_caption(
-                    caption=caption, reply_markup=cancel_keyboard if not is_job_finished else None
-                )
-        except aiogram.exceptions.TelegramBadRequest:
-            pass
+        await callback.message.edit_caption(
+            caption=caption, reply_markup=cancel_keyboard if not is_job_finished else None
+        )
 
         # Handle ended job
         if is_job_finished:
@@ -296,16 +251,14 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
     else:
         await api_client.cancel_job(callback.message.chat.id, job_id)
         job_attributes = await api_client.check_job(callback.message.chat.id, job_id)
-        try:
-            if isinstance(callback.message, Message):
-                caption = format_printing_message(data, printer, job_attributes, timed_out=True)
-                await callback.message.edit_caption(caption=caption)
-        except aiogram.exceptions.TelegramBadRequest:
-            pass
+        caption = format_printing_message(data, printer, job_attributes, timed_out=True)
         await shared_messages.go_to_default_state(callback, state)
+        await callback.message.edit_caption(caption=caption)
 
 
-@router.callback_query(PrintWork.printing, MenuDuringPrintingCallback.filter(F.menu == "cancel"))
+@router.callback_query(
+    CallbackFromConfirmationMessageFilter(), PrintWork.printing, MenuDuringPrintingCallback.filter(F.menu == "cancel")
+)
 async def cancel_print_handler(callback: CallbackQuery, callback_data: MenuDuringPrintingCallback, state: FSMContext):
     job_id = callback_data.job_id
     data = await state.get_data()
@@ -314,12 +267,8 @@ async def cancel_print_handler(callback: CallbackQuery, callback_data: MenuDurin
     await shared_messages.go_to_default_state(callback, state)
 
     printer = await api_client.get_printer(callback.message.chat.id, data.get("printer"))
-    try:
-        caption = format_printing_message(data, printer, job_attributes, canceled_manually=True)
-        if isinstance(callback.message, Message):
-            await callback.message.edit_caption(caption=caption)
-    except (aiogram.exceptions.TelegramBadRequest, KeyError):
-        pass
+    caption = format_printing_message(data, printer, job_attributes, canceled_manually=True)
+    await callback.message.edit_caption(caption=caption)
 
 
 @router.message(

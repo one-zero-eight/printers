@@ -1,7 +1,6 @@
 from typing import Literal
 
 from aiogram import Bot, F, Router, html
-from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
@@ -56,9 +55,6 @@ async def apply_settings_crop(callback: CallbackQuery, callback_data: CropCallba
     assert "confirmation_message_id" in data
     scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     text, markup = format_configure_message(data, scanner)
-    try:
-        await bot.edit_message_text(
-            text=text, chat_id=callback.message.chat.id, message_id=data["confirmation_message_id"], reply_markup=markup
-        )
-    except TelegramBadRequest:
-        pass
+    await bot.edit_message_text(
+        text=text, chat_id=callback.message.chat.id, message_id=data["confirmation_message_id"], reply_markup=markup
+    )

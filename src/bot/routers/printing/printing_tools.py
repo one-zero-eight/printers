@@ -1,13 +1,14 @@
-import aiogram.exceptions
 import math
 from typing import Literal, assert_never
 
 from aiogram import Bot, html
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.bot.fsm_data import FSMData
+from src.bot.logging_ import logger
 from src.bot.shared_messages import MAX_WIDTH_FILLER
 from src.config_schema import Printer
 from src.modules.printing.entity_models import JobAttributes, JobStateEnum, PrinterStatus
@@ -253,8 +254,32 @@ def count_of_pages_to_print(pages: int, page_ranges: str | None) -> int:
 
 async def discard_job_settings_message(data: FSMData, message: Message, state: FSMContext, bot: Bot):
     if data.get("job_settings_message_id", None):
-        try:
-            await bot.delete_message(chat_id=message.chat.id, message_id=data["job_settings_message_id"])
-        except aiogram.exceptions.TelegramBadRequest:
-            pass
+        await bot.delete_message(chat_id=message.chat.id, message_id=data["job_settings_message_id"])
         await state.update_data(job_settings_message_id=None)
+
+
+async def retrieve_sent_file_properties(message: Message):
+    if message.document:
+        file_size = message.document.file_size
+        file_telegram_identifier = message.document.file_id
+        file_telegram_name = message.document.file_name
+    else:
+        file_size = message.photo[-1].file_size
+        file_telegram_identifier = message.photo[-1].file_id
+        file_telegram_name = "Photo.png"
+    if file_size > 20 * 1024 * 1024:  # 20 MB
+        file_size = None
+    if not file_telegram_name:
+        await message.answer("File name is not supported")
+    elif not file_telegram_identifier:
+        await message.answer("No file was sent")
+    elif not file_size:
+        await message.answer(f"File is too large\n\nMaximum size is {html.bold('20 MB')}")
+    return file_size, file_telegram_identifier, file_telegram_name
+
+
+async def ensure_same_confirmation_message(message: Message, state: FSMContext):
+    if (await state.get_data()).get("confirmation_message_id", None) != message.message_id:
+        logger.warning("The confirmation message was changed")
+        await message.edit_text(text=f"{html.bold("You've cancelled this print work 🤷‍♀️")}")
+        raise TelegramBadRequest(None, "")

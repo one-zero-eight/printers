@@ -1,6 +1,5 @@
 from typing import Literal
 
-import aiogram.exceptions
 from aiogram import Bot, F, Router, html
 from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
@@ -54,21 +53,18 @@ async def handle_copies_action(
     await callback.answer()
     data = await state.get_data()
     await discard_job_settings_message(data, callback.message, state, bot)
+    await state.set_state(PrintWork.settings_menu)
     if callback_data.action == "reset":
         data = await state.update_data(copies="1")
         assert "confirmation_message_id" in data
         printer = await api_client.get_printer(callback.message.chat.id, data.get("printer"))
         caption, markup = format_draft_message(data, printer)
-        try:
-            await bot.edit_message_caption(
-                caption=caption,
-                chat_id=callback.message.chat.id,
-                message_id=data["confirmation_message_id"],
-                reply_markup=markup,
-            )
-        except aiogram.exceptions.TelegramBadRequest:
-            pass
-    await state.set_state(PrintWork.settings_menu)
+        await bot.edit_message_caption(
+            caption=caption,
+            chat_id=callback.message.chat.id,
+            message_id=data["confirmation_message_id"],
+            reply_markup=markup,
+        )
 
 
 @router.message(PrintWork.setup_copies)
@@ -79,16 +75,13 @@ async def apply_settings_copies(message: Message, state: FSMContext, bot: Bot):
     if not message.text or not message.text.isdigit():
         assert "job_settings_message_id" in data
         assert "copies" in data
-        try:
-            await bot.edit_message_text(
-                chat_id=message.chat.id,
-                message_id=data["job_settings_message_id"],
-                text=f"🔢 Incorrect format, we expect a {html.bold('digit')}\n\n"
-                f"Current value: {html.bold(html.quote(data['copies']))}\n\n"
-                f"Maximum value is {html.bold('50')} (we'll clamp)",
-            )
-        except aiogram.exceptions.TelegramBadRequest:
-            pass
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=data["job_settings_message_id"],
+            text=f"🔢 Incorrect format, we expect a {html.bold('digit')}\n\n"
+            f"Current value: {html.bold(html.quote(data['copies']))}\n\n"
+            f"Maximum value is {html.bold('50')} (we'll clamp)",
+        )
         return
     await discard_job_settings_message(data, message, state, bot)
     copies = str(max(0, min(50, int(message.text))))
@@ -96,13 +89,10 @@ async def apply_settings_copies(message: Message, state: FSMContext, bot: Bot):
     assert "confirmation_message_id" in data
     printer = await api_client.get_printer(message.chat.id, data.get("printer"))
     caption, markup = format_draft_message(data, printer)
-    try:
-        await bot.edit_message_caption(
-            caption=caption,
-            chat_id=message.chat.id,
-            message_id=data["confirmation_message_id"],
-            reply_markup=markup,
-        )
-    except aiogram.exceptions.TelegramBadRequest:
-        pass
     await state.set_state(PrintWork.settings_menu)
+    await bot.edit_message_caption(
+        caption=caption,
+        chat_id=message.chat.id,
+        message_id=data["confirmation_message_id"],
+        reply_markup=markup,
+    )

@@ -1,6 +1,5 @@
 from typing import Literal
 
-import aiogram.exceptions
 from aiogram import Bot, F, Router, html
 from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
@@ -54,14 +53,11 @@ async def apply_settings_sides(callback: CallbackQuery, callback_data: SidesCall
     await discard_job_settings_message(data, callback.message, state, bot)
     assert "confirmation_message_id" in data
     printer = await api_client.get_printer(callback.message.chat.id, data.get("printer"))
-    try:
-        caption, markup = format_draft_message(data, printer)
-        await bot.edit_message_caption(
-            caption=caption,
-            chat_id=callback.message.chat.id,
-            message_id=data["confirmation_message_id"],
-            reply_markup=markup,
-        )
-    except aiogram.exceptions.TelegramBadRequest:
-        pass
+    caption, markup = format_draft_message(data, printer)
     await state.set_state(PrintWork.settings_menu)
+    await bot.edit_message_caption(
+        caption=caption,
+        chat_id=callback.message.chat.id,
+        message_id=data["confirmation_message_id"],
+        reply_markup=markup,
+    )
