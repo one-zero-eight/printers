@@ -1,13 +1,19 @@
 __all__ = ["printing_repository"]
 
+import asyncio
+import os
+import pathlib
 import re
 import time
+from asyncio import Task
+from tempfile import _TemporaryFileWrapper
 
 import bs4
 import cups
 import httpx
 from cachetools import TTLCache
 
+from src.api.dependencies import USER_AUTH
 from src.api.logging_ import logger
 from src.config import settings
 from src.config_schema import Printer
@@ -39,6 +45,30 @@ class PrintingRepository:
         self._printer_paper_status_cache = TTLCache(maxsize=100, ttl=5 * 60)
         # Cache printer toner status for 5 minutes
         self._printer_toner_status_cache = TTLCache(maxsize=100, ttl=5 * 60)
+
+        self.tempfiles: dict[tuple[str, str], tuple[_TemporaryFileWrapper[bytes], Task[None]]] = {}
+        self.tempfile_expiration_time = 6 * 60 * 60
+
+    def store_tempfile(self, innohassle_user_id, f):
+        self.tempfiles[(innohassle_user_id, pathlib.Path(f.name).name)] = (
+            f,
+            asyncio.create_task(self.wait_for_tempfile_expiration(innohassle_user_id, f)),
+        )
+
+    async def wait_for_tempfile_expiration(self, innohassle_user_id, f):
+        await asyncio.sleep(self.tempfile_expiration_time)
+        await self.remove_tempfile(innohassle_user_id, pathlib.Path(f.name).name, True)
+
+    async def remove_tempfile(self, innohassle_user_id, filename, expired=False):
+        if (innohassle_user_id, filename) in self.tempfiles:
+            os.unlink(self.get_tempfile_path(innohassle_user_id, filename))
+            if not expired:
+                self.tempfiles[(innohassle_user_id, filename)][1].cancel()
+            del self.tempfiles[(innohassle_user_id, filename)]
+            return True
+
+    def get_tempfile_path(self, innohassle_user_id, filename):
+        return self.tempfiles[(innohassle_user_id, filename)][0].name
 
     def get_printer(self, cups_name: str) -> Printer | None:
         for elem in settings.api.printers_list:
@@ -172,9 +202,15 @@ class PrintingRepository:
                             return int((level / maxcapacity) * 100)
         return None
 
-    def print_file(self, printer: Printer, file_name: str, title: str, options: PrintingOptions) -> int:
+    def print_file(
+        self, innohassle_user_id: USER_AUTH, filename: str, printer: Printer, options: PrintingOptions
+    ) -> int:
         options_dict = options.model_dump(by_alias=True, exclude_none=True)
-        return self.server.printFile(printer.cups_name, file_name, title, options=options_dict)
+        job_id = self.server.printFile(
+            printer.cups_name, self.get_tempfile_path(innohassle_user_id, filename), "job", options=options_dict
+        )
+        self.remove_tempfile(innohassle_user_id, filename)
+        return job_id
 
     def get_job_status(self, job_id: int) -> JobAttributes:
         attributes = self.server.getJobAttributes(

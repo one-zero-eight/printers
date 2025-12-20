@@ -62,17 +62,22 @@ async def go_to_default_state(callback_or_message: CallbackQuery | Message, stat
 
 async def usual_error_answer(event: ErrorEvent):
     answer = None
-    if "message to delete" in str(event.exception):
-        answer = (
-            "A necessary message was lost 🤔\n\n"
-            + "Ignore if everything looks good\n"
-            + html.bold("Otherwise, try to send the file or /scan again\n")
-        )
-    elif "Server disconnected" in str(event.exception):
-        answer = "Telegram has issues with handling our service now 📉\n\n" + html.bold(
+    try:
+        answer = f"{event.exception.response.json()['detail']} 😕\n\n" + html.bold(
             "Try to send the file or /scan again"
         )
-    elif "Request timeout" in str(event.exception):
-        answer = "Telegram or our API is busy now 📉\n\n" + html.bold("Try to send the file or /scan again")
+    except (AttributeError, ValueError):
+        if "message to delete" in str(event.exception):
+            answer = (
+                "A necessary message was lost 🤔\n\n"
+                + "Ignore if everything looks good\n"
+                + html.bold("Otherwise, try to send the file or /scan again\n")
+            )
+        elif "Server disconnected" in str(event.exception):
+            answer = "Telegram has issues with handling our service now 📉\n\n" + html.bold(
+                "Try to send the file or /scan again"
+            )
+        elif "Request timeout" in str(event.exception):
+            answer = "Telegram or our API is busy now 📉\n\n" + html.bold("Try to send the file or /scan again")
     logger.error(f"{event.exception}")
     return answer

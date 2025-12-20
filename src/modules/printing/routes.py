@@ -1,5 +1,4 @@
 import asyncio
-import os
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -18,7 +17,6 @@ from src.modules.printing.entity_models import JobAttributes, PreparePrintingRes
 from src.modules.printing.repository import printing_repository
 
 router = APIRouter(prefix="/print", tags=["Print"])
-tempfiles: dict[tuple[str, str], Any] = {}
 
 
 @router.get("/job_status")
@@ -33,11 +31,13 @@ async def job_status(job_id: int, _innohassle_user_id: USER_AUTH) -> JobAttribut
 
 @router.get("/get_file", responses={404: {"description": "No such file"}})
 def get_file(filename: str, innohassle_user_id: USER_AUTH) -> FileResponse:
-    if (innohassle_user_id, filename) in tempfiles:
-        full_path = tempfiles[(innohassle_user_id, filename)].name
-        return FileResponse(full_path, headers={"Content-Disposition": f"attachment; filename={filename}"})
+    if (innohassle_user_id, filename) in printing_repository.tempfiles:
+        return FileResponse(
+            printing_repository.get_tempfile_path(innohassle_user_id, filename),
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
     else:
-        raise HTTPException(404, "No such file")
+        raise HTTPException(404, "No such file. It was removed from our servers due to expiration")
 
 
 @router.get("/get_printers")
@@ -69,7 +69,7 @@ async def get_printer_status(printer_cups_name: str, _innohassle_user_id: USER_A
 @router.post("/prepare", responses={400: {"description": "Unsupported format"}})
 async def prepare_printing(file: UploadFile, innohassle_user_id: USER_AUTH) -> PreparePrintingResponse:
     """
-    Convert a file to pdf and return the path to the converted file
+    Convert a file to PDF and return the path to the converted file
     """
 
     if not file.size:
@@ -80,7 +80,7 @@ async def prepare_printing(file: UploadFile, innohassle_user_id: USER_AUTH) -> P
     if ext == ".pdf":
         f = tempfile.NamedTemporaryFile(dir=settings.api.temp_dir, suffix=".pdf")
         f.write(await file.read())
-        tempfiles[(innohassle_user_id, Path(f.name).name)] = f
+        printing_repository.store_tempfile(innohassle_user_id, f)
         return PreparePrintingResponse(filename=Path(f.name).name, pages=len(PyPDF2.PdfReader(f).pages))
     elif ext in [".doc", ".docx", ".png", ".txt", ".jpg", ".md", ".bmp", ".xlsx", ".xls", ".odt", ".ods"]:
         with (
@@ -92,7 +92,7 @@ async def prepare_printing(file: UploadFile, innohassle_user_id: USER_AUTH) -> P
             # Run conversion in a background thread
             await asyncio.to_thread(converting_repository.any2pdf, in_f.name, out_f.name)
             in_f.close()
-            tempfiles[(innohassle_user_id, Path(out_f.name).name)] = out_f
+            printing_repository.store_tempfile(innohassle_user_id, out_f)
             return PreparePrintingResponse(filename=Path(out_f.name).name, pages=len(PyPDF2.PdfReader(out_f).pages))
     else:
         raise HTTPException(400, f"no support of the {ext} format")
@@ -110,18 +110,15 @@ async def actual_print(
     """
     logger.info(f"Printing options: {printing_options}")
 
-    if (innohassle_user_id, filename) in tempfiles:
+    if (innohassle_user_id, filename) in printing_repository.tempfiles:
         printer = printing_repository.get_printer(printer_cups_name)
         if not printer:
             raise HTTPException(400, "No such printer")
-        full_path = tempfiles[(innohassle_user_id, filename)].name
-        job_id = printing_repository.print_file(printer, full_path, "job", printing_options)
+        job_id = printing_repository.print_file(innohassle_user_id, filename, printer, printing_options)
         logger.info(f"Job {job_id} has started")
-        os.unlink(full_path)
-        del tempfiles[(innohassle_user_id, filename)]
         return job_id
     else:
-        raise HTTPException(404, "No such file")
+        raise HTTPException(404, "No such file. It was removed from our servers due to expiration")
 
 
 @router.post("/cancel", responses={404: {"description": "No such file"}, 400: {"description": "No such printer"}})
@@ -132,12 +129,8 @@ async def cancel_printing(job_id: int, _innohassle_user_id: USER_AUTH) -> None:
 
 @router.post("/cancel_preparation", responses={404: {"description": "No such file"}})
 async def cancel_preparation(filename: str, innohassle_user_id: USER_AUTH) -> None:
-    if (innohassle_user_id, filename) in tempfiles:
-        full_path = tempfiles[(innohassle_user_id, filename)].name
-        os.unlink(full_path)
-        del tempfiles[(innohassle_user_id, filename)]
-    else:
-        raise HTTPException(404, "No such file")
+    if not printing_repository.remove_tempfile(innohassle_user_id, filename):
+        raise HTTPException(404, "No such file. It was removed from our servers due to expiration")
 
 
 @router.post("/debug/getPrinterAttributes")
