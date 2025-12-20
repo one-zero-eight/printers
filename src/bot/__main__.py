@@ -69,7 +69,8 @@ async def main() -> None:
                     "Error 🙁\n\n"
                     + html.bold("Try to send the file or /scan again\n")
                     + "Use /start if the error persists"
-                    + (f"\n\n{html.spoiler(f'For developers: {event.exception}')}" if str(event.exception) else "")
+                    + (f"\n\n{html.spoiler(f'For developers: {event.exception}')}" if str(event.exception) else ""),
+                    disable_web_page_preview=True,
                 )
         except TelegramBadRequest:
             await message.reply(
