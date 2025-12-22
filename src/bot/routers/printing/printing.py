@@ -33,11 +33,13 @@ from src.bot.routers.printing.printing_states import PrintWork
 from src.bot.routers.printing.printing_tools import (
     MenuCallback,
     MenuDuringPrintingCallback,
+    cancel_expiring,
     count_of_papers_to_print,
     discard_job_settings_message,
     ensure_same_confirmation_message,
     format_draft_message,
     format_printing_message,
+    make_expiring,
     retrieve_sent_file_properties,
 )
 from src.modules.printing.entity_models import JobStateEnum, PrintingOptions
@@ -111,7 +113,7 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
     caption, markup = format_draft_message(data, printer_status)
     await ensure_same_confirmation_message(msg, state)
     try:
-        await msg.edit_media(
+        msg = await msg.edit_media(
             aiogram.types.InputMediaDocument(media=input_file, caption=caption),
             reply_markup=markup if data.get("printer") is not None else None,
         )
@@ -121,6 +123,7 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
     caption, markup = format_draft_message(data, printer_status)
     await ensure_same_confirmation_message(msg, state)
+    await make_expiring(msg)
     await msg.edit_caption(caption=caption, reply_markup=markup if data.get("printer") is not None else None)
 
 
@@ -141,11 +144,13 @@ async def cancel_print_configuration_handler(callback: CallbackQuery, state: FSM
     await callback.message.edit_caption(
         caption=f"{callback.message.caption}\n\n{html.bold("You've cancelled this print work 🤷‍♀️")}"
     )
+    await cancel_expiring(callback.message)
 
 
 @router.callback_query(CallbackFromConfirmationMessageFilter(), MenuCallback.filter(F.menu == "confirm"))
 @flags.chat_action("typing")
 async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: Bot):
+    await cancel_expiring(callback.message)
     await callback.answer()
     await state.set_state(PrintWork.printing)
 

@@ -1,3 +1,4 @@
+import asyncio
 import math
 from typing import Literal, assert_never
 
@@ -12,6 +13,9 @@ from src.bot.logging_ import logger
 from src.bot.shared_messages import MAX_WIDTH_FILLER
 from src.config_schema import Printer
 from src.modules.printing.entity_models import JobAttributes, JobStateEnum, PrinterStatus
+
+expiration_tasks = set()
+message_expiration_time = 5 * 60 * 60
 
 
 class MenuCallback(CallbackData, prefix="menu"):
@@ -282,4 +286,23 @@ async def ensure_same_confirmation_message(message: Message, state: FSMContext):
     if (await state.get_data()).get("confirmation_message_id", None) != message.message_id:
         logger.warning("The confirmation message was changed")
         await message.edit_text(text=f"{html.bold("You've cancelled this print work 🤷‍♀️")}")
+        await cancel_expiring(message)
         raise TelegramBadRequest(None, "")
+
+
+async def make_expiring(message: Message):
+    task = asyncio.create_task(mark_as_expired(message), name=str(message.message_id))
+    expiration_tasks.add(task)
+    task.add_done_callback(lambda elem: expiration_tasks.remove(elem))
+
+
+async def cancel_expiring(message: Message):
+    for elem in expiration_tasks:
+        if elem.get_name() == str(message.message_id):
+            elem.cancel()
+            return
+
+
+async def mark_as_expired(message: Message):
+    await asyncio.sleep(message_expiration_time)
+    await message.edit_caption(caption=f"{message.caption}\n{html.italic('This job has expired 🕒')}")
