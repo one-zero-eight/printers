@@ -23,6 +23,7 @@ async def start_scan_name_setup(callback_or_message: CallbackQuery | Message, st
     await state.update_data(job_settings_message_id=msg.message_id)
 
 
+@router.callback_query(ScanWork.setup_name, ScanningPausedCallback.filter(F.menu == "rename"))
 @router.callback_query(ScanWork.pause_menu, ScanningPausedCallback.filter(F.menu == "rename"))
 async def scan_options_name(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
@@ -46,8 +47,7 @@ async def apply_settings_name(message: Message, state: FSMContext, bot: Bot):
             chat_id=message.chat.id,
             message_id=data["job_settings_message_id"],
             text=f"✏️ The name provided contains invalid characters: {html.bold(html.quote(', '.join(invalid_chars)))}\n\n"
-            f"Send the new name for your scanned document,\n"
-            f"Current filename: {html.bold(html.quote(current_scan_name))}",
+            f"Send the new name for your scanned document, current filename: {html.bold(html.quote(current_scan_name))}",
         )
         return
 
