@@ -22,6 +22,7 @@ from src.bot.routers.printing.print_settings.sides_setup import router as print_
 from src.bot.routers.printing.printing import router as printing_router
 from src.bot.routers.scanning.scan_settings.crop_setup import router as scan_crop_setup_router
 from src.bot.routers.scanning.scan_settings.mode_setup import router as scan_mode_setup_router
+from src.bot.routers.scanning.scan_settings.name_setup import router as scan_name_setup_router
 from src.bot.routers.scanning.scan_settings.quality_setup import router as scan_quality_setup_router
 from src.bot.routers.scanning.scan_settings.scanner_setup import router as scan_scanner_setup_router
 from src.bot.routers.scanning.scan_settings.sides_setup import router as scan_sides_setup_router
@@ -96,6 +97,7 @@ async def main() -> None:
         scan_quality_setup_router,
         scan_sides_setup_router,
         scan_crop_setup_router,
+        scan_name_setup_router,
     ):
         dispatcher.include_router(router)
     await dispatcher.start_polling(bot)

@@ -1,7 +1,7 @@
 from typing import get_args
 
 import httpx
-from aiogram import Bot, F, Router, flags, html
+from aiogram import Bot, F, Router, flags
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
@@ -64,9 +64,7 @@ async def scan_options_cancel(callback: CallbackQuery, state: FSMContext, bot: B
     await go_to_default_state(callback, state)
 
 
-@router.callback_query(
-    CallbackFromConfirmationMessageFilter(), ScanConfigureCallback.filter(F.menu == "start"), StateFilter
-)
+@router.callback_query(CallbackFromConfirmationMessageFilter(), ScanConfigureCallback.filter(F.menu == "start"))
 @router.callback_query(ScanWork.pause_menu, ScanningPausedCallback.filter(F.menu == "scan-more"))
 @router.callback_query(ScanWork.pause_menu, ScanningPausedCallback.filter(F.menu == "scan-new"))
 @flags.chat_action("upload_document")
@@ -79,7 +77,7 @@ async def start_scan_handler(
     await discard_job_settings_message(data, callback.message, state, bot)
 
     if isinstance(callback_data, ScanConfigureCallback):  # We are starting a new scan
-        await state.update_data(scan_filename=None, scan_result_pages_count=None, scan_custom_filename=None)
+        await state.update_data(scan_server_name=None, scan_result_pages_count=None, scan_name=None)
 
     if isinstance(callback_data, ScanningPausedCallback) and callback_data.menu == "scan-new":
         # We are starting a new scan
@@ -101,9 +99,9 @@ async def start_scan_handler(
         msg = await callback.message.answer(text, reply_markup=markup)
         await state.update_data(
             confirmation_message_id=msg.message_id,
-            scan_filename=None,
+            scan_server_name=None,
             scan_result_pages_count=None,
-            scan_custom_filename=None,
+            scan_name=None,
         )
 
     data = await state.get_data()
@@ -112,7 +110,7 @@ async def start_scan_handler(
     assert "mode" in data
     assert "crop" in data
 
-    has_caption = data.get("scan_filename") is not None
+    has_caption = data.get("scan_server_name") is not None
 
     scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     if not scanner:
@@ -192,17 +190,17 @@ async def start_scan_handler(
 
     # Wait for document to be scanned
     scanning_result = await api_client.wait_and_merge_manual_scan(
-        callback.message.chat.id, scanner, scan_job_id, data.get("scan_filename")
+        callback.message.chat.id, scanner, scan_job_id, data.get("scan_server_name")
     )
     data = await state.update_data(
-        scan_filename=scanning_result.filename,
+        scan_server_name=scanning_result.filename,
         scan_result_pages_count=scanning_result.page_count,
     )
     assert "confirmation_message_id" in data
 
     # Update message
     file = await api_client.get_scanned_file(callback.message.chat.id, scanning_result.filename)
-    display_filename = data.get("scan_custom_filename") or "scan.pdf"
+    display_filename = data.get("scan_name") or "scan.pdf"
     input_file = BufferedInputFile(file, filename=display_filename)
     text, markup = format_scanning_paused_message(data, scanner)
     await bot.edit_message_media(
@@ -231,20 +229,20 @@ async def scanning_paused_remove_last_handler(
     data = await state.get_data()
     assert "confirmation_message_id" in data
 
-    prev_filename = data.get("scan_filename")
+    prev_filename = data.get("scan_server_name")
     if not prev_filename:
         await callback.message.answer("No scanned files found")
         return
     scanning_result = await api_client.remove_last_page_manual_scan(callback.message.chat.id, prev_filename)
     data = await state.update_data(
-        scan_filename=scanning_result.filename,
+        scan_server_name=scanning_result.filename,
         scan_result_pages_count=scanning_result.page_count,
     )
     assert "confirmation_message_id" in data
 
     # Send file
     file = await api_client.get_scanned_file(callback.message.chat.id, scanning_result.filename)
-    display_filename = data.get("scan_custom_filename") or "scan.pdf"
+    display_filename = data.get("scan_name") or "scan.pdf"
     input_file = BufferedInputFile(file, filename=display_filename)
     scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     text, markup = format_scanning_paused_message(data, scanner)
@@ -257,71 +255,14 @@ async def scanning_paused_remove_last_handler(
     await state.set_state(ScanWork.pause_menu)
 
 
-@router.callback_query(ScanWork.pause_menu, ScanningPausedCallback.filter(F.menu == "rename"))
-async def scanning_paused_rename_handler(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    await callback.answer()
-    await state.set_state(ScanWork.setup_rename)
-
-    data = await state.get_data()
-    current_filename = data.get("scan_custom_filename") or "scan.pdf"
-
-    msg = await callback.message.answer(
-        f"✏️ Send the new filename for your scanned document.\n\n"
-        f"Current filename: {html.bold(html.quote(current_filename))}"
-    )
-    await state.update_data(job_settings_message_id=msg.message_id)
-
-
-@router.message(ScanWork.setup_rename, F.text)
-async def scanning_rename_text_handler(message: Message, state: FSMContext, bot: Bot):
-    await message.delete()
-
-    new_filename = message.text.strip()
-
-    if not new_filename.lower().endswith(".pdf"):
-        new_filename = f"{new_filename}.pdf"
-
-    invalid_chars = ["/", "\\", ":", "*", "?", '"', "<", ">", "|"]
-    if any(char in new_filename for char in invalid_chars):
-        data = await state.get_data()
-        assert "job_settings_message_id" in data
-        await bot.edit_message_text(
-            message_id=data["job_settings_message_id"],
-            chat_id=message.chat.id,
-            text=f"✏️ Filename contains invalid characters: {html.bold(', '.join(invalid_chars))}\n\n"
-            f"Please try again with a valid filename.",
-        )
-        return
-
-    data = await state.get_data()
-    await discard_job_settings_message(data, message, state, bot)
-    data = await state.update_data(scan_custom_filename=new_filename)
-    assert "confirmation_message_id" in data
-    assert "scan_filename" in data
-
-    file = await api_client.get_scanned_file(message.chat.id, data["scan_filename"])
-    input_file = BufferedInputFile(file, filename=new_filename)
-    scanner = await api_client.get_scanner(message.chat.id, data.get("scanner"))
-    text, markup = format_scanning_paused_message(data, scanner)
-
-    await bot.edit_message_media(
-        media=InputMediaDocument(media=input_file, caption=text),
-        chat_id=message.chat.id,
-        message_id=data["confirmation_message_id"],
-        reply_markup=markup,
-    )
-
-    await state.set_state(ScanWork.pause_menu)
-
-
 @router.callback_query(ScanWork.pause_menu, ScanningPausedCallback.filter(F.menu == "finish"))
 async def scanning_paused_finish_handler(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
 
     data = await state.get_data()
     assert "confirmation_message_id" in data
-    if "scan_filename" in data:
-        await api_client.delete_scanned_file(callback.message.chat.id, data["scan_filename"])
+    if "scan_server_name" in data:
+        await api_client.delete_scanned_file(callback.message.chat.id, data["scan_server_name"])
 
     scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     caption, markup = format_scanning_paused_message(data, scanner, is_finished=True)

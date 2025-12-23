@@ -17,10 +17,10 @@ class ScanWork(StatesGroup):
     setup_scanner = State()
     setup_sides = State()
     setup_crop = State()
+    setup_name = State()
 
     scanning = State()
     pause_menu = State()
-    setup_rename = State()
 
 
 async def gracefully_interrupt_scanning_state(
