@@ -167,12 +167,12 @@ def format_scanning_paused_message(
                     callback_data=ScanningPausedCallback(menu="scan-more").pack(),
                 ),
                 InlineKeyboardButton(
-                    text="⏩ Scan new document", callback_data=ScanningPausedCallback(menu="scan-new").pack()
+                    text="🗑️ Remove last page", callback_data=ScanningPausedCallback(menu="remove-last").pack()
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Remove last page", callback_data=ScanningPausedCallback(menu="remove-last").pack()
+                    text="⏩ Scan new document", callback_data=ScanningPausedCallback(menu="scan-new").pack()
                 ),
                 InlineKeyboardButton(text="✏️ Rename", callback_data=ScanningPausedCallback(menu="rename").pack()),
             ],

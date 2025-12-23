@@ -260,72 +260,56 @@ async def scanning_paused_remove_last_handler(
 @router.callback_query(ScanWork.pause_menu, ScanningPausedCallback.filter(F.menu == "rename"))
 async def scanning_paused_rename_handler(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
-    await state.set_state(ScanWork.rename)
+    await state.set_state(ScanWork.setup_rename)
 
     data = await state.get_data()
     current_filename = data.get("scan_custom_filename") or "scan.pdf"
 
-    prompt_msg = await callback.message.answer(
+    msg = await callback.message.answer(
         f"✏️ Send the new filename for your scanned document.\n\n"
         f"Current filename: {html.bold(html.quote(current_filename))}"
     )
-    await state.update_data(rename_prompt_message_id=prompt_msg.message_id)
+    await state.update_data(job_settings_message_id=msg.message_id)
 
 
-@router.message(ScanWork.rename)
+@router.message(ScanWork.setup_rename, F.text)
 async def scanning_rename_text_handler(message: Message, state: FSMContext, bot: Bot):
     await message.delete()
 
-    if not message.text:
-        await message.answer("Please send a text message with the filename.")
-        return
-
     new_filename = message.text.strip()
-
-    if not new_filename:
-        await message.answer("Filename cannot be empty.")
-        return
 
     if not new_filename.lower().endswith(".pdf"):
         new_filename = f"{new_filename}.pdf"
 
     invalid_chars = ["/", "\\", ":", "*", "?", '"', "<", ">", "|"]
     if any(char in new_filename for char in invalid_chars):
-        await message.answer(
-            f"Filename contains invalid characters: {html.bold(', '.join(invalid_chars))}\n"
-            f"Please try again with a valid filename."
+        data = await state.get_data()
+        assert "job_settings_message_id" in data
+        await bot.edit_message_text(
+            message_id=data["job_settings_message_id"],
+            chat_id=message.chat.id,
+            text=f"✏️ Filename contains invalid characters: {html.bold(', '.join(invalid_chars))}\n\n"
+            f"Please try again with a valid filename.",
         )
         return
 
+    data = await state.get_data()
+    await discard_job_settings_message(data, message, state, bot)
     data = await state.update_data(scan_custom_filename=new_filename)
     assert "confirmation_message_id" in data
-    scan_filename = data.get("scan_filename")
-    if not scan_filename:
-        await message.answer("No scanned file found.")
-        await state.set_state(ScanWork.pause_menu)
-        return
+    assert "scan_filename" in data
 
-    file = await api_client.get_scanned_file(message.chat.id, scan_filename)
+    file = await api_client.get_scanned_file(message.chat.id, data["scan_filename"])
     input_file = BufferedInputFile(file, filename=new_filename)
     scanner = await api_client.get_scanner(message.chat.id, data.get("scanner"))
     text, markup = format_scanning_paused_message(data, scanner)
 
-    try:
-        await bot.edit_message_media(
-            media=InputMediaDocument(media=input_file, caption=text),
-            chat_id=message.chat.id,
-            message_id=data["confirmation_message_id"],
-            reply_markup=markup,
-        )
-    except TelegramBadRequest:
-        pass
-
-    rename_prompt_message_id = data.get("rename_prompt_message_id")
-    if rename_prompt_message_id:
-        try:
-            await bot.delete_message(chat_id=message.chat.id, message_id=rename_prompt_message_id)
-        except TelegramBadRequest:
-            pass
+    await bot.edit_message_media(
+        media=InputMediaDocument(media=input_file, caption=text),
+        chat_id=message.chat.id,
+        message_id=data["confirmation_message_id"],
+        reply_markup=markup,
+    )
 
     await state.set_state(ScanWork.pause_menu)
 

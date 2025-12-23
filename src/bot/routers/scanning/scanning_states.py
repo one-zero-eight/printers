@@ -20,7 +20,7 @@ class ScanWork(StatesGroup):
 
     scanning = State()
     pause_menu = State()
-    rename = State()
+    setup_rename = State()
 
 
 async def gracefully_interrupt_scanning_state(
@@ -46,11 +46,9 @@ async def gracefully_interrupt_scanning_state(
         except TelegramBadRequest:
             pass
     elif current_state == ScanWork.scanning:
-        assert "scan_job_id" in data
-        assert "scanner" in data
         assert "confirmation_message_id" in data
-        scanner = await api_client.get_scanner(message.chat.id, data["scanner"])
-        if scanner:
+        scanner = await api_client.get_scanner(message.chat.id, data.get("scanner"))
+        if scanner and "scan_job_id" in data:
             await api_client.cancel_manual_scan(message.chat.id, scanner, data["scan_job_id"])
         text, markup = format_scanning_message(data, scanner, "cancelled")
         try:
