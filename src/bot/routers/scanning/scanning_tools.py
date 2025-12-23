@@ -21,14 +21,15 @@ class ScanningPausedCallback(CallbackData, prefix="scanning_paused"):
     menu: Literal["remove-last", "scan-more", "scan-new", "finish", "rename"]
 
 
+def empty_inline_space_remainder(string):
+    return string + " " * (100 - len(string)) + "."
+
+
 def format_configure_message(data: FSMData, scanner: Scanner | None) -> tuple[str, InlineKeyboardMarkup]:
     assert "mode" in data
     assert "quality" in data
     assert "scan_sides" in data
     assert "crop" in data
-
-    def empty_inline_space_remainder(string):
-        return string + " " * (100 - len(string)) + "."
 
     display_mode = empty_inline_space_remainder(
         f"✏️ {'Manual Scan' if data['mode'] == 'manual' else 'Auto Scan' if data['mode'] == 'auto' else '—'}"
@@ -167,14 +168,18 @@ def format_scanning_paused_message(
                     callback_data=ScanningPausedCallback(menu="scan-more").pack(),
                 ),
                 InlineKeyboardButton(
-                    text="🗑️ Remove last page", callback_data=ScanningPausedCallback(menu="remove-last").pack()
+                    text=empty_inline_space_remainder("🗑️ Remove last page"),
+                    callback_data=ScanningPausedCallback(menu="remove-last").pack(),
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text="⏩ Scan new document", callback_data=ScanningPausedCallback(menu="scan-new").pack()
                 ),
-                InlineKeyboardButton(text="✏️ Rename", callback_data=ScanningPausedCallback(menu="rename").pack()),
+                InlineKeyboardButton(
+                    text=empty_inline_space_remainder("✏️ Rename"),
+                    callback_data=ScanningPausedCallback(menu="rename").pack(),
+                ),
             ],
             [
                 InlineKeyboardButton(text="🏁 Finish", callback_data=ScanningPausedCallback(menu="finish").pack()),
