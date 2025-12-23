@@ -17,7 +17,7 @@ async def start_scan_name_setup(callback_or_message: CallbackQuery | Message, st
     current_scan_name = data.get("scan_name") or "scan.pdf"
     message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
     msg = await message.answer(
-        f"✏️ Send the new filename for your scanned document.\n\n"
+        f"✏️ Send the new name for your scanned document.\n\n"
         f"Current filename: {html.bold(html.quote(current_scan_name))}"
     )
     await state.update_data(job_settings_message_id=msg.message_id)
@@ -39,13 +39,15 @@ async def apply_settings_name(message: Message, state: FSMContext, bot: Bot):
 
     invalid_chars = ["/", "\\", ":", "*", "?", '"', "<", ">", "|"]
     data = await state.get_data()
+    current_scan_name = data.get("scan_name") or "scan.pdf"
     if any(char in new_scan_name for char in invalid_chars):
         assert "job_settings_message_id" in data
         await bot.edit_message_text(
-            message_id=data["job_settings_message_id"],
             chat_id=message.chat.id,
-            text=f"✏️ Filename contains invalid characters: {html.bold(', '.join(invalid_chars))}\n\n"
-            f"Please try again with a valid filename.",
+            message_id=data["job_settings_message_id"],
+            text=f"✏️ The name provided contains invalid characters: {html.bold(html.quote(', '.join(invalid_chars)))}\n\n"
+            f"Send the new name for your scanned document,\n"
+            f"Current filename: {html.bold(html.quote(current_scan_name))}",
         )
         return
 
