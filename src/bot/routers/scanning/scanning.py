@@ -65,8 +65,8 @@ async def scan_options_cancel(callback: CallbackQuery, state: FSMContext, bot: B
 
 
 @router.callback_query(CallbackFromConfirmationMessageFilter(), ScanConfigureCallback.filter(F.menu == "start"))
-@router.callback_query(ScanWork.pause_menu, ScanningPausedCallback.filter(F.menu == "scan-more"))
-@router.callback_query(ScanWork.pause_menu, ScanningPausedCallback.filter(F.menu == "scan-new"))
+@router.callback_query(CallbackFromConfirmationMessageFilter(), ScanningPausedCallback.filter(F.menu == "scan-more"))
+@router.callback_query(CallbackFromConfirmationMessageFilter(), ScanningPausedCallback.filter(F.menu == "scan-new"))
 @flags.chat_action("upload_document")
 async def start_scan_handler(
     callback: CallbackQuery, callback_data: ScanConfigureCallback | ScanningPausedCallback, state: FSMContext, bot: Bot
@@ -74,6 +74,7 @@ async def start_scan_handler(
     await callback.answer()
     await state.set_state(ScanWork.scanning)
     data = await state.get_data()
+    await discard_job_settings_message(data, callback.message, state, bot)
     await discard_job_settings_message(data, callback.message, state, bot)
 
     if isinstance(callback_data, ScanConfigureCallback):  # We are starting a new scan
@@ -219,7 +220,7 @@ async def scanning_cancel_handler(callback: CallbackQuery, state: FSMContext, bo
     await go_to_default_state(callback, state)
 
 
-@router.callback_query(ScanWork.pause_menu, ScanningPausedCallback.filter(F.menu == "remove-last"))
+@router.callback_query(CallbackFromConfirmationMessageFilter(), ScanningPausedCallback.filter(F.menu == "remove-last"))
 async def scanning_paused_remove_last_handler(
     callback: CallbackQuery, callback_data: ScanningPausedCallback, state: FSMContext, bot: Bot
 ):
@@ -227,6 +228,7 @@ async def scanning_paused_remove_last_handler(
     await state.set_state(ScanWork.scanning)
 
     data = await state.get_data()
+    await discard_job_settings_message(data, callback.message, state, bot)
     assert "confirmation_message_id" in data
 
     prev_filename = data.get("scan_server_name")
@@ -255,11 +257,12 @@ async def scanning_paused_remove_last_handler(
     await state.set_state(ScanWork.pause_menu)
 
 
-@router.callback_query(ScanWork.pause_menu, ScanningPausedCallback.filter(F.menu == "finish"))
+@router.callback_query(CallbackFromConfirmationMessageFilter(), ScanningPausedCallback.filter(F.menu == "finish"))
 async def scanning_paused_finish_handler(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
 
     data = await state.get_data()
+    await discard_job_settings_message(data, callback.message, state, bot)
     assert "confirmation_message_id" in data
     if "scan_server_name" in data:
         await api_client.delete_scanned_file(callback.message.chat.id, data["scan_server_name"])
