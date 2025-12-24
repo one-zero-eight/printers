@@ -16,6 +16,7 @@ async def start_scan_name_setup(callback_or_message: CallbackQuery | Message, st
     data = await state.get_data()
     current_scan_name = data.get("scan_name") or "scan.pdf"
     message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
+    await discard_job_settings_message(data, message, state, bot)
     msg = await message.answer(
         f"✏️ Send the new name for your scanned document.\n\n"
         f"Current filename: {html.bold(html.quote(current_scan_name))}"
