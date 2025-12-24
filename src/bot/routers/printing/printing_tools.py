@@ -258,7 +258,10 @@ def count_of_pages_to_print(pages: int, page_ranges: str | None) -> int:
 
 async def discard_job_settings_message(data: FSMData, message: Message, state: FSMContext, bot: Bot):
     if data.get("job_settings_message_id", None):
-        await bot.delete_message(chat_id=message.chat.id, message_id=data["job_settings_message_id"])
+        try:
+            await bot.delete_message(chat_id=message.chat.id, message_id=data["job_settings_message_id"])
+        except TelegramBadRequest:
+            pass
         await state.update_data(job_settings_message_id=None)
 
 
