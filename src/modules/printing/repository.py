@@ -57,10 +57,11 @@ class PrintingRepository:
 
     async def wait_for_tempfile_expiration(self, innohassle_user_id, f):
         await asyncio.sleep(self.tempfile_expiration_time)
-        await self.remove_tempfile(innohassle_user_id, pathlib.Path(f.name).name, True)
+        self.remove_tempfile(innohassle_user_id, pathlib.Path(f.name).name, True)
 
-    async def remove_tempfile(self, innohassle_user_id, filename, expired=False):
+    def remove_tempfile(self, innohassle_user_id, filename, expired=False):
         if (innohassle_user_id, filename) in self.tempfiles:
+            self.tempfiles[(innohassle_user_id, filename)][0].close()
             os.unlink(self.get_tempfile_path(innohassle_user_id, filename))
             if not expired:
                 self.tempfiles[(innohassle_user_id, filename)][1].cancel()

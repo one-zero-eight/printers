@@ -1,12 +1,16 @@
+import asyncio
 from typing import Literal
 
 from aiogram import html
 from aiogram.filters.callback_data import CallbackData
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.bot.fsm_data import FSMData
 from src.bot.shared_messages import MAX_WIDTH_FILLER
 from src.config_schema import Scanner
+
+expiration_tasks = set()
+message_expiration_time = 5 * 60 * 60
 
 
 class ScanConfigureCallback(CallbackData, prefix="scan_menu"):
@@ -187,3 +191,24 @@ def format_scanning_paused_message(
         ]
     )
     return caption, markup
+
+
+async def make_expiring(message: Message):
+    task = asyncio.create_task(mark_as_expired(message), name=str(message.message_id))
+    expiration_tasks.add(task)
+    task.add_done_callback(lambda elem: expiration_tasks.remove(elem))
+
+
+async def cancel_expiring(message: Message):
+    for elem in expiration_tasks:
+        if elem.get_name() == str(message.message_id):
+            elem.cancel()
+            return
+
+
+async def mark_as_expired(message: Message):
+    await asyncio.sleep(message_expiration_time)
+    try:
+        await message.edit_caption(caption=f"{html.italic('This scan job has expired 🕒')}")
+    except Exception:
+        await message.edit_text(text=f"{html.italic('This scan job has expired 🕒')}")

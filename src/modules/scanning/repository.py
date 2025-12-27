@@ -1,5 +1,12 @@
+import asyncio
+import os
+import pathlib
+from asyncio import Task
+from tempfile import _TemporaryFileWrapper
+
 import httpx
 
+from src.api.dependencies import USER_AUTH
 from src.api.logging_ import logger
 from src.config import settings
 from src.config_schema import Scanner
@@ -31,6 +38,54 @@ SCAN_OPTIONS_TEMPLATE = """
 
 
 class ScanningRepository:
+    def __init__(self):
+        self.tempfiles: dict[tuple[str, str], tuple[_TemporaryFileWrapper[bytes], Task[None]]] = {}
+        self.job_options: dict[tuple[str, str], tuple[ScanningOptions, Task[None]]] = {}
+        self.tempfile_expiration_time = 6 * 60 * 60
+
+    def get_tempfile_path(self, innohassle_user_id, filename):
+        return self.tempfiles[(innohassle_user_id, filename)][0].name
+
+    def store_job_options(self, innohassle_user_id: USER_AUTH, job_id: str, scanning_options: ScanningOptions):
+        self.job_options[(innohassle_user_id, job_id)] = (
+            scanning_options,
+            asyncio.create_task(self.wait_for_job_expiration(innohassle_user_id, job_id)),
+        )
+
+    async def wait_for_job_expiration(self, innohassle_user_id: USER_AUTH, job_id: str):
+        await asyncio.sleep(self.tempfile_expiration_time)
+        self.retrieve_job_options(innohassle_user_id, job_id, expired=True)
+
+    def retrieve_job_options(self, innohassle_user_id: USER_AUTH, job_id: str, expired=False):
+        if (innohassle_user_id, job_id) in self.job_options:
+            if not expired:
+                self.job_options[(innohassle_user_id, job_id)][1].cancel()
+            job_options = self.job_options[(innohassle_user_id, job_id)][0]
+            del self.job_options[(innohassle_user_id, job_id)]
+            return job_options
+
+    def store_tempfile(self, innohassle_user_id: USER_AUTH, f: _TemporaryFileWrapper):
+        self.tempfiles[(innohassle_user_id, pathlib.Path(f.name).name)] = (
+            f,
+            asyncio.create_task(self.wait_for_tempfile_expiration(innohassle_user_id, f)),
+        )
+
+    async def wait_for_tempfile_expiration(self, innohassle_user_id: USER_AUTH, f: _TemporaryFileWrapper):
+        await asyncio.sleep(self.tempfile_expiration_time)
+        self.remove_tempfile(innohassle_user_id, pathlib.Path(f.name).name, expired=True)
+
+    def retrieve_tempfile(self, innohassle_user_id: USER_AUTH, filename: str):
+        return self.tempfiles[(innohassle_user_id, filename)][0]
+
+    def remove_tempfile(self, innohassle_user_id: USER_AUTH, filename: str, expired=False):
+        if (innohassle_user_id, filename) in self.tempfiles:
+            self.tempfiles[(innohassle_user_id, filename)][0].close()
+            os.unlink(self.get_tempfile_path(innohassle_user_id, filename))
+            if not expired:
+                self.tempfiles[(innohassle_user_id, filename)][1].cancel()
+            del self.tempfiles[(innohassle_user_id, filename)]
+            return True
+
     def get_scanner(self, scanner_name: str) -> Scanner | None:
         for elem in settings.api.scanners_list:
             if elem.name == scanner_name:
@@ -56,8 +111,8 @@ class ScanningRepository:
             logger.info(f"Scanner {scanner.name} scanning: {job_id}")
             if not job_id:
                 return None
-            document = await self._fetch_scanned_document(scanner, job_id)
-            await self._delete_printer_scan_job(scanner, job_id)
+            document = await self.fetch_scanned_document(scanner, job_id)
+            await self.delete_printer_scan_job(scanner, job_id)
         except httpx.HTTPError as e:
             logger.info(f"Scanner {scanner.name} error: {e}")
             raise
@@ -88,18 +143,18 @@ class ScanningRepository:
             return job_id
 
     async def fetch_scan_one(self, scanner: Scanner, job_id: str) -> bytes | None:
-        document = await self._fetch_scanned_document(scanner, job_id)
-        await self._delete_printer_scan_job(scanner, job_id)
+        document = await self.fetch_scanned_document(scanner, job_id)
+        await self.delete_printer_scan_job(scanner, job_id)
         return document
 
-    async def _fetch_scanned_document(self, scanner: Scanner, job_id: str) -> bytes:
+    async def fetch_scanned_document(self, scanner: Scanner, job_id: str) -> bytes:
         async with httpx.AsyncClient(verify=False, timeout=httpx.Timeout(None)) as client:
             logger.info(f"Scanner {scanner.name} fetching document {job_id}")
             response = await client.get(f"{scanner.escl}/ScanJobs/{job_id}/NextDocument")
             response.raise_for_status()
             return response.content  # PDF bytes
 
-    async def _delete_printer_scan_job(self, scanner: Scanner, job_id: str) -> None:
+    async def delete_printer_scan_job(self, scanner: Scanner, job_id: str) -> None:
         """Delete the scan job from the printer, so nobody can download the file"""
         async with httpx.AsyncClient(verify=False) as client:
             logger.info(f"Scanner {scanner.name} deleting document {job_id}")

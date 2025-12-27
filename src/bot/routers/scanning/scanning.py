@@ -21,9 +21,11 @@ from src.bot.routers.scanning.scanning_tools import (
     ScanConfigureCallback,
     ScanningCallback,
     ScanningPausedCallback,
+    cancel_expiring,
     format_configure_message,
     format_scanning_message,
     format_scanning_paused_message,
+    make_expiring,
 )
 from src.bot.shared_messages import go_to_default_state
 from src.modules.scanning.entity_models import ScanningOptions
@@ -48,6 +50,7 @@ async def command_scan_handler(message: Message, state: FSMContext, bot: Bot):
     text, markup = format_configure_message(data, scanner)
     msg = await message.answer(text, reply_markup=markup if all((data.get("scanner"), data.get("mode"))) else None)
     data = await state.update_data(confirmation_message_id=msg.message_id)
+    await make_expiring(msg)
 
     if data.get("scanner") is None:
         await start_scanner_setup(message, state, bot)
@@ -58,6 +61,7 @@ async def command_scan_handler(message: Message, state: FSMContext, bot: Bot):
 @router.callback_query(CallbackFromConfirmationMessageFilter(), ScanConfigureCallback.filter(F.menu == "cancel"))
 async def scan_options_cancel(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
+    await cancel_expiring(callback.message)
     data = await state.get_data()
     await discard_job_settings_message(data, callback.message, state, bot)
     await gracefully_interrupt_scanning_state(callback, state, bot)
@@ -72,6 +76,7 @@ async def start_scan_handler(
     callback: CallbackQuery, callback_data: ScanConfigureCallback | ScanningPausedCallback, state: FSMContext, bot: Bot
 ):
     await callback.answer()
+    await cancel_expiring(callback.message)
     await state.set_state(ScanWork.scanning)
     data = await state.get_data()
     await discard_job_settings_message(data, callback.message, state, bot)
@@ -204,6 +209,7 @@ async def start_scan_handler(
     display_filename = data.get("scan_name") or "scan.pdf"
     input_file = BufferedInputFile(file, filename=display_filename)
     text, markup = format_scanning_paused_message(data, scanner)
+    await make_expiring(callback.message)
     await bot.edit_message_media(
         media=InputMediaDocument(media=input_file, caption=text),
         chat_id=callback.message.chat.id,
@@ -216,6 +222,7 @@ async def start_scan_handler(
 @router.callback_query(ScanWork.scanning, ScanningCallback.filter(F.menu == "cancel"))
 async def scanning_cancel_handler(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
+    await cancel_expiring(callback.message)
     await gracefully_interrupt_scanning_state(callback, state, bot)
     await go_to_default_state(callback, state)
 
@@ -225,6 +232,7 @@ async def scanning_paused_remove_last_handler(
     callback: CallbackQuery, callback_data: ScanningPausedCallback, state: FSMContext, bot: Bot
 ):
     await callback.answer()
+    await cancel_expiring(callback.message)
     await state.set_state(ScanWork.scanning)
 
     data = await state.get_data()
@@ -248,6 +256,7 @@ async def scanning_paused_remove_last_handler(
     input_file = BufferedInputFile(file, filename=display_filename)
     scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     text, markup = format_scanning_paused_message(data, scanner)
+    await make_expiring(callback.message)
     await bot.edit_message_media(
         media=InputMediaDocument(media=input_file, caption=text),
         chat_id=callback.message.chat.id,
@@ -260,7 +269,7 @@ async def scanning_paused_remove_last_handler(
 @router.callback_query(CallbackFromConfirmationMessageFilter(), ScanningPausedCallback.filter(F.menu == "finish"))
 async def scanning_paused_finish_handler(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await callback.answer()
-
+    await cancel_expiring(callback.message)
     data = await state.get_data()
     await discard_job_settings_message(data, callback.message, state, bot)
     assert "confirmation_message_id" in data
