@@ -80,7 +80,10 @@ class ScanningRepository:
     def remove_tempfile(self, innohassle_user_id: USER_AUTH, filename: str, expired=False):
         if (innohassle_user_id, filename) in self.tempfiles:
             self.tempfiles[(innohassle_user_id, filename)][0].close()
-            os.unlink(self.get_tempfile_path(innohassle_user_id, filename))
+            try:
+                os.unlink(self.get_tempfile_path(innohassle_user_id, filename))
+            except FileNotFoundError:
+                pass
             if not expired:
                 self.tempfiles[(innohassle_user_id, filename)][1].cancel()
             del self.tempfiles[(innohassle_user_id, filename)]
