@@ -2,6 +2,7 @@ import asyncio
 from typing import Literal
 
 from aiogram import html
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
@@ -212,3 +213,13 @@ async def mark_as_expired(message: Message):
         await message.edit_caption(caption=f"{html.italic('This scan job has expired 🕒')}")
     except Exception:
         await message.edit_text(text=f"{html.italic('This scan job has expired 🕒')}")
+
+
+async def edit_message_text_anyway(message: Message, text: str, reply_markup: InlineKeyboardMarkup | None = None):
+    try:
+        await message.edit_caption(caption=text, reply_markup=reply_markup)
+    except TelegramBadRequest:
+        try:
+            await message.edit_text(text=text, reply_markup=reply_markup)
+        except TelegramBadRequest:
+            pass

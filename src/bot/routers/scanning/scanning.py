@@ -2,7 +2,7 @@ from typing import get_args
 
 import httpx
 from aiogram import Bot, F, Router, flags
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.enums import ChatAction
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, InputMediaDocument, Message
@@ -22,6 +22,7 @@ from src.bot.routers.scanning.scanning_tools import (
     ScanningCallback,
     ScanningPausedCallback,
     cancel_expiring,
+    edit_message_text_anyway,
     format_configure_message,
     format_scanning_message,
     format_scanning_paused_message,
@@ -69,154 +70,83 @@ async def scan_options_cancel(callback: CallbackQuery, state: FSMContext, bot: B
 
 
 @router.callback_query(CallbackFromConfirmationMessageFilter(), ScanConfigureCallback.filter(F.menu == "start"))
-@router.callback_query(CallbackFromConfirmationMessageFilter(), ScanningPausedCallback.filter(F.menu == "scan-more"))
-@router.callback_query(CallbackFromConfirmationMessageFilter(), ScanningPausedCallback.filter(F.menu == "scan-new"))
-@flags.chat_action("upload_document")
-async def start_scan_handler(
-    callback: CallbackQuery, callback_data: ScanConfigureCallback | ScanningPausedCallback, state: FSMContext, bot: Bot
+@flags.chat_action(ChatAction.UPLOAD_DOCUMENT)
+async def start_new_scan_handler(
+    callback: CallbackQuery, state: FSMContext, bot: Bot, pretending_callback_message=None
 ):
+    data = await state.update_data(scan_server_name=None, scan_result_pages_count=None, scan_name=None)
+    await discard_job_settings_message(
+        data, pretending_callback_message if pretending_callback_message else callback.message, state, bot
+    )
+    await continue_scan_handler(callback, state, bot, pretending_callback_message)
+
+
+@router.callback_query(CallbackFromConfirmationMessageFilter(), ScanningPausedCallback.filter(F.menu == "scan-more"))
+@flags.chat_action(ChatAction.UPLOAD_DOCUMENT)
+async def continue_scan_handler(callback: CallbackQuery, state: FSMContext, bot: Bot, pretending_callback_message=None):
+    message = pretending_callback_message if pretending_callback_message else callback.message
     await callback.answer()
     await cancel_expiring(callback.message)
     await state.set_state(ScanWork.scanning)
     data = await state.get_data()
-    await discard_job_settings_message(data, callback.message, state, bot)
-    await discard_job_settings_message(data, callback.message, state, bot)
-
-    if isinstance(callback_data, ScanConfigureCallback):  # We are starting a new scan
-        await state.update_data(scan_server_name=None, scan_result_pages_count=None, scan_name=None)
-
-    if isinstance(callback_data, ScanningPausedCallback) and callback_data.menu == "scan-new":
-        # We are starting a new scan
-        assert "confirmation_message_id" in data
-
-        scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
-        try:
-            caption, markup = format_scanning_paused_message(data, scanner, is_finished=True)
-            await bot.edit_message_caption(
-                caption=caption,
-                chat_id=callback.message.chat.id,
-                message_id=data["confirmation_message_id"],
-                reply_markup=markup,
-            )
-        except TelegramBadRequest:
-            pass
-
-        text, markup = format_scanning_message(data, scanner, "starting")
-        msg = await callback.message.answer(text, reply_markup=markup)
-        await state.update_data(
-            confirmation_message_id=msg.message_id,
-            scan_server_name=None,
-            scan_result_pages_count=None,
-            scan_name=None,
-        )
-
-    data = await state.get_data()
-    assert "confirmation_message_id" in data
-    assert "quality" in data
-    assert "mode" in data
-    assert "crop" in data
-
-    has_caption = data.get("scan_server_name") is not None
-
-    scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
-    if not scanner:
-        await callback.message.answer("Scanner not found")
-        return
-
-    try:
-        text, markup = format_scanning_message(data, scanner, "starting")
-        if has_caption:
-            await bot.edit_message_caption(
-                caption=text,
-                chat_id=callback.message.chat.id,
-                message_id=data["confirmation_message_id"],
-                reply_markup=markup,
-            )
-        else:
-            await bot.edit_message_text(
-                text=text,
-                chat_id=callback.message.chat.id,
-                message_id=data["confirmation_message_id"],
-                reply_markup=markup,
-            )
-    except TelegramBadRequest:
-        pass
-
-    # Start scanning
+    scanner = await api_client.get_scanner(message.chat.id, data.get("scanner"))
+    text, markup = format_scanning_message(data, scanner, "starting")
+    await edit_message_text_anyway(message, text, markup)
     scanning_options = ScanningOptions(
         sides="false" if data["mode"] == "manual" else data.get("scan_sides", "false"),
         quality=data["quality"],
         input_source="Platen" if data["mode"] == "manual" else "Adf",
         crop=data["crop"],
     )
+
+    # start scanning
     try:
-        scan_job_id = await api_client.start_manual_scan(callback.message.chat.id, scanner, scanning_options)
+        scan_job_id = await api_client.start_manual_scan(message.chat.id, scanner, scanning_options)
+        text, markup = format_scanning_message(data, scanner, "scanning")
+        await edit_message_text_anyway(message, text, markup)
+        scanning_result = await api_client.wait_and_merge_manual_scan(
+            message.chat.id, scanner, scan_job_id, data.get("scan_server_name")
+        )
+        data = await state.update_data(
+            scan_server_name=scanning_result.filename,
+            scan_result_pages_count=scanning_result.page_count,
+            scan_job_id=scan_job_id,
+        )
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 503:
-            await callback.message.answer("Scanner is busy. Try pressing Cancel button on the device and try again.")
+            await message.answer("Scanner is busy. Try pressing Cancel button on the device and try again.")
             await state.set_state(ScanWork.pause_menu)
             text, markup = format_scanning_paused_message(data, scanner)
-            if has_caption:
-                await bot.edit_message_caption(
-                    caption=text,
-                    chat_id=callback.message.chat.id,
-                    message_id=data["confirmation_message_id"],
-                    reply_markup=markup,
-                )
-            else:
-                await bot.edit_message_text(
-                    text=text,
-                    chat_id=callback.message.chat.id,
-                    message_id=data["confirmation_message_id"],
-                    reply_markup=markup,
-                )
+            await edit_message_text_anyway(message, text, markup)
             return
         raise
-    data = await state.update_data(scan_job_id=scan_job_id)
-    assert "confirmation_message_id" in data
 
-    try:
-        text, markup = format_scanning_message(data, scanner, "scanning")
-        if has_caption:
-            await bot.edit_message_caption(
-                caption=text,
-                chat_id=callback.message.chat.id,
-                message_id=data["confirmation_message_id"],
-                reply_markup=markup,
-            )
-        else:
-            await bot.edit_message_text(
-                text=text,
-                chat_id=callback.message.chat.id,
-                message_id=data["confirmation_message_id"],
-                reply_markup=markup,
-            )
-    except TelegramBadRequest:
-        pass
-
-    # Wait for document to be scanned
-    scanning_result = await api_client.wait_and_merge_manual_scan(
-        callback.message.chat.id, scanner, scan_job_id, data.get("scan_server_name")
-    )
-    data = await state.update_data(
-        scan_server_name=scanning_result.filename,
-        scan_result_pages_count=scanning_result.page_count,
-    )
-    assert "confirmation_message_id" in data
-
-    # Update message
-    file = await api_client.get_scanned_file(callback.message.chat.id, scanning_result.filename)
+    # update the confirmation message
+    file = await api_client.get_scanned_file(message.chat.id, scanning_result.filename)
     display_filename = data.get("scan_name") or "scan.pdf"
     input_file = BufferedInputFile(file, filename=display_filename)
     text, markup = format_scanning_paused_message(data, scanner)
-    await make_expiring(callback.message)
+    await make_expiring(message)
     await bot.edit_message_media(
         media=InputMediaDocument(media=input_file, caption=text),
-        chat_id=callback.message.chat.id,
+        chat_id=message.chat.id,
         message_id=data["confirmation_message_id"],
         reply_markup=markup,
     )
     await state.set_state(ScanWork.pause_menu)
+
+
+@router.callback_query(CallbackFromConfirmationMessageFilter(), ScanningPausedCallback.filter(F.menu == "scan-new"))
+@flags.chat_action(ChatAction.UPLOAD_DOCUMENT)
+async def send_new_started_scan_confirmation_message(callback: CallbackQuery, state: FSMContext, bot: Bot):
+    data = await state.update_data(scan_server_name=None, scan_result_pages_count=None, scan_name=None)
+    scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
+    caption, markup = format_scanning_paused_message(data, scanner, is_finished=True)
+    await edit_message_text_anyway(callback.message, caption, markup)
+    text, markup = format_scanning_message(data, scanner, "starting")
+    msg = await callback.message.answer(text, reply_markup=markup)
+    await state.update_data(confirmation_message_id=msg.message_id)
+    await start_new_scan_handler(callback, state, bot, msg)
 
 
 @router.callback_query(ScanWork.scanning, ScanningCallback.filter(F.menu == "cancel"))
