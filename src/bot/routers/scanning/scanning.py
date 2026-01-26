@@ -78,12 +78,12 @@ async def start_new_scan_handler(
     await discard_job_settings_message(
         data, pretending_callback_message if pretending_callback_message else callback.message, state, bot
     )
-    await continue_scan_handler(callback, state, bot, pretending_callback_message)
+    await continue_scan_handler(callback, state, pretending_callback_message)
 
 
 @router.callback_query(CallbackFromConfirmationMessageFilter(), ScanningPausedCallback.filter(F.menu == "scan-more"))
 @flags.chat_action(ChatAction.UPLOAD_DOCUMENT)
-async def continue_scan_handler(callback: CallbackQuery, state: FSMContext, bot: Bot, pretending_callback_message=None):
+async def continue_scan_handler(callback: CallbackQuery, state: FSMContext, pretending_callback_message=None):
     message = pretending_callback_message if pretending_callback_message else callback.message
     await callback.answer()
     await cancel_expiring(callback.message)
@@ -115,8 +115,12 @@ async def continue_scan_handler(callback: CallbackQuery, state: FSMContext, bot:
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 503:
             await message.answer("Scanner is busy. Try pressing Cancel button on the device and try again.")
-            await state.set_state(ScanWork.pause_menu)
-            text, markup = format_scanning_paused_message(data, scanner)
+            if data.get("scan_server_name"):
+                await state.set_state(ScanWork.pause_menu)
+                text, markup = format_scanning_paused_message(data, scanner)
+            else:
+                await state.set_state(ScanWork.settings_menu)
+                text, markup = format_configure_message(data, scanner)
             await edit_message_text_anyway(message, text, markup)
             return
         raise
@@ -127,18 +131,13 @@ async def continue_scan_handler(callback: CallbackQuery, state: FSMContext, bot:
     input_file = BufferedInputFile(file, filename=display_filename)
     text, markup = format_scanning_paused_message(data, scanner)
     await make_expiring(message)
-    await bot.edit_message_media(
-        media=InputMediaDocument(media=input_file, caption=text),
-        chat_id=message.chat.id,
-        message_id=data["confirmation_message_id"],
-        reply_markup=markup,
-    )
+    await message.edit_media(media=InputMediaDocument(media=input_file, caption=text), reply_markup=markup)
     await state.set_state(ScanWork.pause_menu)
 
 
 @router.callback_query(CallbackFromConfirmationMessageFilter(), ScanningPausedCallback.filter(F.menu == "scan-new"))
 @flags.chat_action(ChatAction.UPLOAD_DOCUMENT)
-async def send_new_started_scan_confirmation_message(callback: CallbackQuery, state: FSMContext, bot: Bot):
+async def send_new_started_scan_confirmation_message_handler(callback: CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.update_data(scan_server_name=None, scan_result_pages_count=None, scan_name=None)
     scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     caption, markup = format_scanning_paused_message(data, scanner, is_finished=True)
@@ -187,12 +186,7 @@ async def scanning_paused_remove_last_handler(
     scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     text, markup = format_scanning_paused_message(data, scanner)
     await make_expiring(callback.message)
-    await bot.edit_message_media(
-        media=InputMediaDocument(media=input_file, caption=text),
-        chat_id=callback.message.chat.id,
-        message_id=data["confirmation_message_id"],
-        reply_markup=markup,
-    )
+    await callback.message.edit_media(media=InputMediaDocument(media=input_file, caption=text), reply_markup=markup)
     await state.set_state(ScanWork.pause_menu)
 
 
@@ -209,12 +203,7 @@ async def scanning_paused_finish_handler(callback: CallbackQuery, state: FSMCont
     scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
     caption, markup = format_scanning_paused_message(data, scanner, is_finished=True)
     await go_to_default_state(callback, state)
-    await bot.edit_message_caption(
-        caption=caption,
-        chat_id=callback.message.chat.id,
-        message_id=data["confirmation_message_id"],
-        reply_markup=markup,
-    )
+    await edit_message_text_anyway(callback.message, caption, markup)
 
 
 @router.callback_query(
