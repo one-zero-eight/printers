@@ -10,7 +10,7 @@ from src.api.dependencies import USER_AUTH
 from src.api.logging_ import logger
 from src.config import settings
 from src.config_schema import Scanner
-from src.modules.scanning.entity_models import ScanningOptions
+from src.modules.scanning.entity_models import ScannerStatus, ScanningOptions
 
 SCAN_OPTIONS_TEMPLATE = """
 <?xml version="1.0" encoding="UTF-8"?>
@@ -101,11 +101,27 @@ class ScanningRepository:
             response.raise_for_status()
             return response.text  # XML document
 
-    async def get_scanner_status(self, scanner: Scanner):
+    async def get_scanner_status(self, scanner: Scanner) -> ScannerStatus:
         async with httpx.AsyncClient(verify=False) as client:
-            response = await client.get(f"{scanner.escl}/ScannerStatus")
-            response.raise_for_status()
-            return response.text
+            offline = await self._is_scanner_offline(scanner, client)
+
+        return ScannerStatus(scanner=scanner, offline=offline)
+
+    async def _is_scanner_offline(self, scanner: Scanner, client: httpx.AsyncClient) -> bool:
+        try:
+            response = await client.head(f"{scanner.escl}/ScannerStatus")
+            logger.info(
+                f"Scanner {scanner.name} (HEAD {scanner.escl}/ScannerStatus) fetch time: "
+                f"{response.elapsed.total_seconds() * 1000:.0f}ms"
+            )
+            if response.status_code == httpx.codes.OK:
+                return False  # online
+            else:
+                logger.warning(f"Scanner {scanner.name} unexpected response: {response}")
+                return True
+        except (httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout) as e:
+            logger.warning(f"Scanner {scanner.name} is offline: {type(e)}")
+            return True
 
     async def scan_one_page(self, scanner: Scanner, options: ScanningOptions) -> bytes | None:
         """Scan using eSCL and return document as PDF bytes"""

@@ -6,7 +6,7 @@ from pydantic import TypeAdapter
 from src.config import settings
 from src.config_schema import Printer, Scanner
 from src.modules.printing.entity_models import JobAttributes, PreparePrintingResponse, PrinterStatus, PrintingOptions
-from src.modules.scanning.entity_models import ScanningOptions, ScanningResult
+from src.modules.scanning.entity_models import ScannerStatus, ScanningOptions, ScanningResult
 
 
 class InNoHasslePrintAPI:
@@ -101,9 +101,7 @@ class InNoHasslePrintAPI:
             adapter = TypeAdapter(list[PrinterStatus])
             return adapter.validate_python(response.json())
 
-    async def get_printer_status(self, telegram_id: int, printer_cups_name: str | None = None) -> PrinterStatus | None:
-        if printer_cups_name is None:
-            return None
+    async def get_printer_status(self, telegram_id: int, printer_cups_name: str) -> PrinterStatus:
         params = {"printer_cups_name": printer_cups_name}
         async with self._create_client(telegram_id) as client:
             response = await client.get("/print/get_printer_status", params=params)
@@ -125,6 +123,14 @@ class InNoHasslePrintAPI:
             if scanner.name == scanner_name:
                 return scanner
         return None
+
+    async def get_scanner_status(self, telegram_id: int, scanner_name: str | None = None) -> ScannerStatus | None:
+        if scanner_name is None:
+            return None
+        async with self._create_client(telegram_id) as client:
+            response = await client.get("/scan/debug/get_scanner_status", params={"scanner_name": scanner_name})
+            response.raise_for_status()
+            return ScannerStatus.model_validate(response.json())
 
     async def start_manual_scan(self, telegram_id: int, scanner: Scanner, scanning_options: ScanningOptions) -> str:
         params = {"scanner_name": scanner.name}

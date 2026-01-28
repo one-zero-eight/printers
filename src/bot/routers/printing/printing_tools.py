@@ -1,4 +1,3 @@
-import asyncio
 import math
 from typing import Literal, assert_never
 
@@ -9,13 +8,10 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.bot.fsm_data import FSMData
-from src.bot.logging_ import logger
+from src.bot.routers.tools import button_text_align_left
 from src.bot.shared_messages import MAX_WIDTH_FILLER
 from src.config_schema import Printer
 from src.modules.printing.entity_models import JobAttributes, JobStateEnum, PrinterStatus
-
-expiration_tasks = set()
-message_expiration_time = 5 * 60 * 60
 
 
 class MenuCallback(CallbackData, prefix="menu"):
@@ -27,8 +23,12 @@ class MenuDuringPrintingCallback(CallbackData, prefix="menu_during_printing"):
     job_id: int
 
 
-def format_draft_message(
-    data: FSMData, status_or_printer: PrinterStatus | Printer | None, status_of_document: str | None = None
+class PrinterCallback(CallbackData, prefix="printer"):
+    cups_name: str
+
+
+def format_configure_message(
+    data: FSMData, status: PrinterStatus | None, status_of_document: str | None = None
 ) -> tuple[str, InlineKeyboardMarkup]:
     assert "pages" in data
     assert "page_ranges" in data
@@ -40,33 +40,26 @@ def format_draft_message(
         caption = f"{status_of_document}{MAX_WIDTH_FILLER}\n"
     else:
         caption = f"Document is ready to be printed{MAX_WIDTH_FILLER}\n"
-    total_papers = count_of_papers_to_print(
-        pages=data["pages"],
-        page_ranges=data["page_ranges"],
-        number_up=data["number_up"],
-        sides=data["sides"],
-        copies=data["copies"],
-    )
-    caption += f"Total papers: {total_papers}\n"
-    if isinstance(status_or_printer, PrinterStatus):
-        status = status_or_printer
-        status_or_printer = status.printer
-        caption += html.bold(f"🖨 {format_printer_status(status)}\n")
-    else:
-        caption += f"🖨 {status_or_printer.display_name if status_or_printer else '—'}\n"
 
-    def empty_inline_space_remainder(string):
-        return string + " " * (100 - len(string)) + "."
+    caption += f"Total papers: {
+        count_of_papers_to_print(
+            pages=data['pages'],
+            page_ranges=data['page_ranges'],
+            number_up=data['number_up'],
+            sides=data['sides'],
+            copies=data['copies'],
+        )
+    }\n"
 
-    layout = {"1": "1x1", "2": "1x2", "4": "2x2", "6": "2x3", "9": "3x3", "16": "4x4"}.get(data["number_up"], None)
+    caption += html.bold(f"🖨 {format_printer_status(status)}\n")
+
+    layout = {"1": "1x1", "2": "1x2", "4": "2x2", "6": "2x3", "9": "3x3", "16": "4x4"}.get(data["number_up"])
     sides = "One side" if data["sides"] == "one-sided" else "Both sides"
-    display_printer = empty_inline_space_remainder(f"✏️ {status_or_printer.display_name if status_or_printer else '—'}")
-    display_copies = empty_inline_space_remainder(f"✏️ {data['copies']}")
-    display_page_ranges = empty_inline_space_remainder(
-        f"✏️ {'all' if data['page_ranges'] is None else data['page_ranges']}"
-    )
-    display_layout = empty_inline_space_remainder(f"✏️ {layout}")
-    display_sides = empty_inline_space_remainder(f"✏️ {sides}")
+    display_printer = button_text_align_left(f"✏️ {status.printer.display_name if status else '—'}")
+    display_copies = button_text_align_left(f"✏️ {data['copies']}")
+    display_page_ranges = button_text_align_left(f"✏️ {data['page_ranges'] if data['page_ranges'] else 'all'}")
+    display_layout = button_text_align_left(f"✏️ {layout}")
+    display_sides = button_text_align_left(f"✏️ {sides}")
     markup = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -99,6 +92,21 @@ def format_draft_message(
     return caption, markup
 
 
+def format_printer_status(status: PrinterStatus) -> str:
+    if not status:
+        return "—"
+    show_text = f"{status.printer.display_name}"
+    if status.offline:
+        show_text += ", ☠️ Offline"
+    elif status.toner_percentage is not None and status.paper_percentage is not None:
+        show_text += f" 🩸 {status.toner_percentage}% 📄 {status.paper_percentage}%"
+    elif status.toner_percentage is not None:
+        show_text += f" 🩸 {status.toner_percentage}%"
+    elif status.paper_percentage is not None:
+        show_text += f", 📄 {'is present' if status.paper_percentage > 0 else 'is absent'}"
+    return show_text
+
+
 def format_printing_message(
     data: FSMData,
     printer: Printer | None,
@@ -118,10 +126,7 @@ def format_printing_message(
 
     display_printer = html.bold(html.quote(printer.display_name if printer else "—"))
     display_copies = html.bold(html.quote(str(data["copies"])))
-    if data["page_ranges"] is None:
-        display_pages_ranges = html.bold("all")
-    else:
-        display_pages_ranges = html.bold(html.quote(data["page_ranges"]))
+    display_pages_ranges = html.bold(html.quote(data["page_ranges"])) if data["page_ranges"] else html.bold("all")
     display_pages = html.bold(html.quote(str(data["pages"])))
     display_sides = html.bold("One side") if data["sides"] == "one-sided" else html.bold("Two sides")
     display_layout = html.bold(html.quote(LAYOUT))
@@ -154,7 +159,7 @@ def format_printing_message(
         elif job_attributes.job_state == JobStateEnum.processing_stopped:
             throbber = "⏸ Paused"
         elif job_attributes.job_state == JobStateEnum.canceled:
-            throbber = "❌ Job was canceled"
+            throbber = "❌ Job was cancelled"
         elif job_attributes.job_state == JobStateEnum.aborted:
             throbber = "☠️ Job was aborted"
         elif job_attributes.job_state == JobStateEnum.completed:
@@ -189,23 +194,6 @@ def format_printing_message(
         caption += f"\n{html.bold('Job is timed out ☠️')}\n"
 
     return caption
-
-
-class PrinterCallback(CallbackData, prefix="printer"):
-    cups_name: str
-
-
-def format_printer_status(status: PrinterStatus) -> str:
-    show_text = f"{status.printer.display_name}"
-    if status.offline:
-        show_text += " ☠️ Offline"
-    elif status.toner_percentage is not None and status.paper_percentage is not None:
-        show_text += f" 🩸 {status.toner_percentage}% 📄 {status.paper_percentage}%"
-    elif status.toner_percentage is not None:
-        show_text += f" 🩸 {status.toner_percentage}%"
-    elif status.paper_percentage is not None:
-        show_text += f", 📄 {'is present' if status.paper_percentage > 0 else 'is absent'}"
-    return show_text
 
 
 def sub(integers) -> int:
@@ -283,29 +271,3 @@ async def retrieve_sent_file_properties(message: Message):
     elif not file_size:
         await message.answer(f"File is too large\n\nMaximum size is {html.bold('20 MB')}")
     return file_size, file_telegram_identifier, file_telegram_name
-
-
-async def ensure_same_confirmation_message(message: Message, state: FSMContext):
-    if (await state.get_data()).get("confirmation_message_id", None) != message.message_id:
-        logger.warning("The confirmation message was changed")
-        await message.edit_text(text=f"{html.bold("You've cancelled this print work 🤷‍♀️")}")
-        await cancel_expiring(message)
-        raise TelegramBadRequest(None, "")
-
-
-async def make_expiring(message: Message):
-    task = asyncio.create_task(mark_as_expired(message), name=str(message.message_id))
-    expiration_tasks.add(task)
-    task.add_done_callback(lambda elem: expiration_tasks.remove(elem))
-
-
-async def cancel_expiring(message: Message):
-    for elem in expiration_tasks:
-        if elem.get_name() == str(message.message_id):
-            elem.cancel()
-            return
-
-
-async def mark_as_expired(message: Message):
-    await asyncio.sleep(message_expiration_time)
-    await message.edit_caption(caption=f"{message.caption}\n{html.italic('This job has expired 🕒')}")

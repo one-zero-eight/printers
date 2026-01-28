@@ -9,7 +9,7 @@ from starlette.responses import FileResponse, Response
 from src.api.dependencies import USER_AUTH
 from src.config import settings
 from src.config_schema import Scanner
-from src.modules.scanning.entity_models import ScanningOptions, ScanningResult
+from src.modules.scanning.entity_models import ScannerStatus, ScanningOptions, ScanningResult
 from src.modules.scanning.repository import scanning_repository
 from src.modules.scanning.tools.auto_crop import autocrop_pdf_bytes
 from src.modules.scanning.tools.document_merger import merge_documents
@@ -141,12 +141,12 @@ async def get_scanner_capabilities(
 async def get_scanner_status(
     _innohassle_user_id: USER_AUTH,
     scanner_name: str,
-):
+) -> ScannerStatus:
     scanner = scanning_repository.get_scanner(scanner_name)
     if not scanner:
         raise HTTPException(404, "No such scanner")
-    response = await scanning_repository.get_scanner_status(scanner)
-    return Response(response, media_type="application/xml")
+    status = await scanning_repository.get_scanner_status(scanner)
+    return status
 
 
 @router.post("/debug/scan_one_page")

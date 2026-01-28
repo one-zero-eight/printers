@@ -47,10 +47,10 @@ async def gracefully_interrupt_scanning_state(
             pass
     elif current_state == ScanWork.scanning:
         assert "confirmation_message_id" in data
-        scanner = await api_client.get_scanner(message.chat.id, data.get("scanner"))
-        if scanner and "scan_job_id" in data:
-            await api_client.cancel_manual_scan(message.chat.id, scanner, data["scan_job_id"])
-        text, markup = format_scanning_message(data, scanner, "cancelled")
+        scanner_status = await api_client.get_scanner_status(message.chat.id, data.get("scanner"))
+        if scanner_status.scanner and "scan_job_id" in data:
+            await api_client.cancel_manual_scan(message.chat.id, scanner_status.scanner, data["scan_job_id"])
+        text, markup = format_scanning_message(data, scanner_status, "cancelled")
         try:
             await bot.edit_message_text(
                 text=text, chat_id=message.chat.id, message_id=data["confirmation_message_id"], reply_markup=markup
@@ -67,8 +67,8 @@ async def gracefully_interrupt_scanning_state(
                 pass
     elif current_state == ScanWork.pause_menu:
         assert "confirmation_message_id" in data
-        scanner = await api_client.get_scanner(message.chat.id, data.get("scanner"))
-        caption, markup = format_scanning_paused_message(data, scanner, is_finished=True)
+        scanner_status = await api_client.get_scanner_status(message.chat.id, data.get("scanner"))
+        caption, markup = format_scanning_paused_message(data, scanner_status, is_finished=True)
         try:
             await bot.edit_message_caption(
                 caption=caption,

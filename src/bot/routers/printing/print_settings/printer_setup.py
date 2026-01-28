@@ -1,10 +1,8 @@
 import asyncio
-from collections.abc import Sequence
 from typing import assert_never
 
 from aiogram import Bot, F, Router, html
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -19,9 +17,10 @@ from src.bot.routers.printing.printing_tools import (
     MenuCallback,
     PrinterCallback,
     discard_job_settings_message,
-    format_draft_message,
+    format_configure_message,
     format_printer_status,
 )
+from src.bot.routers.tools import ensure_same_structural_message
 from src.config_schema import Printer
 from src.modules.printing.entity_models import PrinterStatus
 
@@ -39,15 +38,44 @@ async def start_printer_setup(callback_or_message: CallbackQuery | Message, stat
 
     asyncio.create_task(
         update_printer_statuses(
-            message.chat.id,
-            message.chat.id,
-            msg.message_id,
+            msg,
             printers,
             state,
-            bot,
-            checkable_state=PrintWork.setup_printer,
         )
     )
+
+
+async def update_printer_statuses(job_settings_message: Message, printers: list[Printer], state: FSMContext):
+    printers_or_statuses = dict()
+    for elem in printers:
+        printers_or_statuses[elem.cups_name] = elem
+    tasks = [api_client.get_printer_status(job_settings_message.chat.id, printer.cups_name) for printer in printers]
+    for task in asyncio.as_completed(tasks):
+        await ensure_same_structural_message(job_settings_message, "job_settings_message_id", state)
+        status = await task
+        printers_or_statuses[status.printer.cups_name] = status
+        new_reply_markup = printers_keyboard(list(printers_or_statuses.values()))
+        await ensure_same_structural_message(job_settings_message, "job_settings_message_id", state)
+        await job_settings_message.edit_reply_markup(reply_markup=new_reply_markup)
+
+
+def printers_keyboard(statuses_and_printers: list[PrinterStatus | Printer]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for status_or_printer in statuses_and_printers:
+        if isinstance(status_or_printer, PrinterStatus):
+            button = InlineKeyboardButton(
+                text=format_printer_status(status_or_printer),
+                callback_data=PrinterCallback(cups_name=status_or_printer.printer.cups_name).pack(),
+            )
+        elif isinstance(status_or_printer, Printer):
+            button = InlineKeyboardButton(
+                text=status_or_printer.display_name,
+                callback_data=PrinterCallback(cups_name=status_or_printer.cups_name).pack(),
+            )
+        else:
+            assert_never(status_or_printer)
+        keyboard.row(button)
+    return keyboard.as_markup()
 
 
 @router.callback_query(PrintWork.settings_menu, MenuCallback.filter(F.menu == "printer"))
@@ -69,7 +97,7 @@ async def apply_settings_printer(callback: CallbackQuery, callback_data: Printer
     assert "printer" in data
     assert "confirmation_message_id" in data
     printer_status = await api_client.get_printer_status(callback.message.chat.id, data.get("printer"))
-    caption, markup = format_draft_message(data, printer_status)
+    caption, markup = format_configure_message(data, printer_status)
     await state.set_state(PrintWork.settings_menu)
     await bot.edit_message_caption(
         caption=caption,
@@ -77,57 +105,3 @@ async def apply_settings_printer(callback: CallbackQuery, callback_data: Printer
         message_id=data["confirmation_message_id"],
         reply_markup=markup,
     )
-
-
-def printers_keyboard(printers: Sequence[PrinterStatus | Printer]) -> InlineKeyboardMarkup:
-    keyboard = InlineKeyboardBuilder()
-
-    for status_or_printer in printers:
-        if isinstance(status_or_printer, PrinterStatus):
-            printer = status_or_printer.printer
-            show_text = format_printer_status(status_or_printer)
-        elif isinstance(status_or_printer, Printer):
-            printer = status_or_printer
-            show_text = printer.display_name
-        else:
-            assert_never(status_or_printer)
-        keyboard.row(
-            InlineKeyboardButton(
-                text=show_text,
-                callback_data=PrinterCallback(cups_name=printer.cups_name).pack(),
-            )
-        )
-    return keyboard.as_markup()
-
-
-async def update_printer_statuses(
-    from_user_id: int,
-    chat_id: int,
-    message_id: int,
-    printers: list,
-    state: FSMContext,
-    bot: Bot,
-    checkable_state: State,
-):
-    tasks = [
-        api_client.get_printer_status(from_user_id, printer.cups_name)
-        for printer in printers
-        if isinstance(printer, Printer)
-    ]
-    for t in asyncio.as_completed(tasks):
-        if await state.get_state() != checkable_state:
-            return
-        result = await t
-        if isinstance(result, PrinterStatus):
-            for i, p in enumerate(printers):
-                if isinstance(p, Printer) and p.cups_name == result.printer.cups_name:
-                    printers[i] = result  # type: ignore
-
-        new_reply_markup = printers_keyboard(printers)
-        if await state.get_state() != checkable_state:
-            return
-        await bot.edit_message_reply_markup(
-            chat_id=chat_id,
-            message_id=message_id,
-            reply_markup=new_reply_markup,
-        )

@@ -2,6 +2,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from src.config_schema import Scanner
+from src.pydantic_base import BaseSchema
+
 
 class ScanningOptions(BaseModel):
     sides: Literal["false", "true"] = Field(default="false")
@@ -17,3 +20,8 @@ class ScanningOptions(BaseModel):
 class ScanningResult(BaseModel):
     filename: str
     page_count: int
+
+
+class ScannerStatus(BaseSchema):
+    scanner: Scanner
+    offline: bool

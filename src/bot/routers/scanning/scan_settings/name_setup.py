@@ -59,8 +59,8 @@ async def apply_settings_name(message: Message, state: FSMContext, bot: Bot):
 
     file = await api_client.get_scanned_file(message.chat.id, data["scan_server_name"])
     input_file = BufferedInputFile(file, filename=new_scan_name)
-    scanner = await api_client.get_scanner(message.chat.id, data.get("scanner"))
-    text, markup = format_scanning_paused_message(data, scanner)
+    scanner_status = await api_client.get_scanner_status(message.chat.id, data.get("scanner"))
+    text, markup = format_scanning_paused_message(data, scanner_status)
 
     await state.set_state(ScanWork.pause_menu)
     await bot.edit_message_media(

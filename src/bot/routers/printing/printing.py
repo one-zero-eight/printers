@@ -33,15 +33,13 @@ from src.bot.routers.printing.printing_states import PrintWork
 from src.bot.routers.printing.printing_tools import (
     MenuCallback,
     MenuDuringPrintingCallback,
-    cancel_expiring,
     count_of_papers_to_print,
     discard_job_settings_message,
-    ensure_same_confirmation_message,
-    format_draft_message,
+    format_configure_message,
     format_printing_message,
-    make_expiring,
     retrieve_sent_file_properties,
 )
+from src.bot.routers.tools import cancel_expiring, ensure_same_structural_message, make_expiring
 from src.modules.printing.entity_models import JobStateEnum, PrintingOptions
 
 router = Router(name="printing")
@@ -69,14 +67,14 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
     file = io.BytesIO()
     await bot.download(file=file_telegram_identifier, destination=file)
 
-    await ensure_same_confirmation_message(msg, state)
+    await ensure_same_structural_message(msg, "confirmation_message_id", state)
     await msg.edit_text("Converting document to PDF...")
     try:
         result = await api_client.prepare_document(message.chat.id, file_telegram_name, file)
     except httpx.HTTPStatusError as e:
         if e.response.status_code not in (400, 500):
             raise
-        await ensure_same_confirmation_message(msg, state)
+        await ensure_same_structural_message(msg, "confirmation_message_id", state)
         await msg.edit_text(
             f"Unfortunately, we cannot print this file yet\n"
             f"because of {html.bold(html.quote(e.response.json()['detail']))}\n\n"
@@ -91,16 +89,16 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
         )
         return
 
-    await ensure_same_confirmation_message(msg, state)
+    await ensure_same_structural_message(msg, "confirmation_message_id", state)
     await msg.edit_text("Uploading...")
     data = await state.update_data(
         pages=result.pages, filename=result.filename, copies="1", page_ranges=None, sides="one-sided", number_up="1"
     )
     printer = await api_client.get_printer(message.chat.id, data.get("printer"))
-    printer_status = await api_client.get_printer_status(message.chat.id, printer.cups_name if printer else None)
+    printer_status = await api_client.get_printer_status(message.chat.id, printer.cups_name) if printer else None
 
-    await ensure_same_confirmation_message(msg, state)
-    caption, markup = format_draft_message(data, printer_status, status_of_document="Uploading...")
+    await ensure_same_structural_message(msg, "confirmation_message_id", state)
+    caption, markup = format_configure_message(data, printer_status, status_of_document="Uploading...")
     await msg.edit_text(text=caption, reply_markup=markup if data.get("printer") is not None else None)
 
     # Start printer choice if printer is not set
@@ -110,8 +108,8 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
     # Attach document to the message
     document = await api_client.get_prepared_document(message.chat.id, data["filename"])
     input_file = BufferedInputFile(document, filename=file_telegram_name[: file_telegram_name.rfind(".")] + ".pdf")
-    caption, markup = format_draft_message(data, printer_status)
-    await ensure_same_confirmation_message(msg, state)
+    caption, markup = format_configure_message(data, printer_status)
+    await ensure_same_structural_message(msg, "confirmation_message_id", state)
     try:
         msg = await msg.edit_media(
             aiogram.types.InputMediaDocument(media=input_file, caption=caption),
@@ -121,8 +119,8 @@ async def document_handler(message: Message, state: FSMContext, bot: Bot):
         logger.error(f"Failed to attach the prepared document: {e}", exc_info=True)
 
     data = await state.get_data()
-    caption, markup = format_draft_message(data, printer_status)
-    await ensure_same_confirmation_message(msg, state)
+    caption, markup = format_configure_message(data, printer_status)
+    await ensure_same_structural_message(msg, "confirmation_message_id", state)
     await make_expiring(msg)
     await msg.edit_caption(caption=caption, reply_markup=markup if data.get("printer") is not None else None)
 
@@ -172,10 +170,9 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
         await callback.answer("Printer not found")
         return
 
-    printing_options = PrintingOptions(
-        copies=data["copies"],
-        sides=data["sides"],
-    )
+    printing_options = PrintingOptions()
+    printing_options.copies = data["copies"]
+    printing_options.sides = data["sides"]
     printing_options.page_ranges = data["page_ranges"]
     printing_options.number_up = data["number_up"]
 
@@ -201,15 +198,14 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
     await callback.message.edit_reply_markup(reply_markup=cancel_keyboard)
 
     # Calculate maximum wait time
-    paper_count = count_of_papers_to_print(
+    max_sec_per_paper = 60
+    max_wait_time = max_sec_per_paper * count_of_papers_to_print(
         pages=data["pages"],
         page_ranges=data["page_ranges"],
         number_up=data["number_up"],
         sides=data["sides"],
         copies=data["copies"],
     )
-    max_sec_per_paper = 60
-    max_wait_time = max_sec_per_paper * paper_count
 
     # Status monitoring loop
     iteration = 0
@@ -229,16 +225,13 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
             await asyncio.sleep(1)
             continue
 
-        # Format message
+        # Update the message
         caption = format_printing_message(data, printer, job_attributes, iteration)
-
         is_job_finished = job_attributes.job_state in [
             JobStateEnum.completed,
             JobStateEnum.canceled,
             JobStateEnum.aborted,
         ]
-
-        # Update message caption with all the information
         await callback.message.edit_caption(
             caption=caption, reply_markup=cancel_keyboard if not is_job_finished else None
         )

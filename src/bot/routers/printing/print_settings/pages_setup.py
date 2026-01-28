@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from src.bot.api import api_client
 from src.bot.routers.printing.printing_states import PrintWork
-from src.bot.routers.printing.printing_tools import MenuCallback, discard_job_settings_message, format_draft_message
+from src.bot.routers.printing.printing_tools import MenuCallback, discard_job_settings_message, format_configure_message
 
 router = Router(name="pages_setup")
 
@@ -100,8 +100,8 @@ async def handle_pages_action(callback: CallbackQuery, callback_data: PagesActio
     if callback_data.action == "reset":
         data = await state.update_data(page_ranges=None)
         assert "confirmation_message_id" in data
-        printer = await api_client.get_printer(callback.message.chat.id, data.get("printer"))
-        caption, markup = format_draft_message(data, printer)
+        printer_status = await api_client.get_printer_status(callback.message.chat.id, data.get("printer"))
+        caption, markup = format_configure_message(data, printer_status)
         await bot.edit_message_caption(
             caption=caption,
             chat_id=callback.message.chat.id,
@@ -144,8 +144,8 @@ async def change_settings_pages(message: Message, state: FSMContext, bot: Bot):
     await discard_job_settings_message(data, message, state, bot)
     data = await state.update_data(data)
     assert "confirmation_message_id" in data
-    printer = await api_client.get_printer(message.chat.id, data.get("printer"))
-    caption, markup = format_draft_message(data, printer)
+    printer_status = await api_client.get_printer_status(message.chat.id, data.get("printer"))
+    caption, markup = format_configure_message(data, printer_status)
     await state.set_state(PrintWork.settings_menu)
     await bot.edit_message_caption(
         caption=caption,

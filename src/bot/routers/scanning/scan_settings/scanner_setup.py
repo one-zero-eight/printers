@@ -1,14 +1,19 @@
+import asyncio
+from typing import assert_never
+
 from aiogram import Bot, F, Router, html
-from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.bot.api import api_client
 from src.bot.routers.printing.printing_tools import discard_job_settings_message
 from src.bot.routers.scanning.scan_settings.mode_setup import start_scan_mode_setup
 from src.bot.routers.scanning.scanning_states import ScanWork
-from src.bot.routers.scanning.scanning_tools import ScanConfigureCallback
+from src.bot.routers.scanning.scanning_tools import ScanConfigureCallback, ScannerCallback, format_scanner_status
+from src.bot.routers.tools import ensure_same_structural_message
+from src.config_schema import Scanner
+from src.modules.scanning.entity_models import ScannerStatus
 
 router = Router(name="scanner_setup")
 
@@ -18,18 +23,42 @@ async def start_scanner_setup(callback_or_message: CallbackQuery | Message, stat
 
     message = callback_or_message.message if isinstance(callback_or_message, CallbackQuery) else callback_or_message
     scanners = await api_client.get_scanners_list(message.chat.id)
-    keyboard = InlineKeyboardBuilder()
-    for scanner in scanners:
-        keyboard.row(
-            InlineKeyboardButton(
-                text=scanner.display_name, callback_data=ScannerCallback(scanner_name=scanner.name).pack()
-            )
-        )
-
-    msg = await message.answer(f"🖨📠 Choose {html.bold('the scanner')}", reply_markup=keyboard.as_markup())
+    msg = await message.answer(f"🖨📠 Choose {html.bold('the scanner')}", reply_markup=scanners_keyboard(scanners))
     await state.update_data(job_settings_message_id=msg.message_id)
 
-    # TODO: show scanner statuses
+    asyncio.create_task(update_scanner_statuses(msg, scanners, state))
+
+
+async def update_scanner_statuses(job_settings_message: Message, scanners: list[Scanner], state: FSMContext):
+    scanners_or_statuses = dict()
+    for elem in scanners:
+        scanners_or_statuses[elem.name] = elem
+    tasks = [api_client.get_scanner_status(job_settings_message.chat.id, scanner.name) for scanner in scanners]
+    for task in asyncio.as_completed(tasks):
+        await ensure_same_structural_message(job_settings_message, "job_settings_message_id", state)
+        status = await task
+        scanners_or_statuses[status.scanner.name] = status
+        new_reply_markup = scanners_keyboard(list(scanners_or_statuses.values()))
+        await ensure_same_structural_message(job_settings_message, "job_settings_message_id", state)
+        await job_settings_message.edit_reply_markup(reply_markup=new_reply_markup)
+
+
+def scanners_keyboard(statuses_and_scanners: list[ScannerStatus | Scanner]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    for status_or_scanner in statuses_and_scanners:
+        if isinstance(status_or_scanner, ScannerStatus):
+            button = InlineKeyboardButton(
+                text=format_scanner_status(status_or_scanner),
+                callback_data=ScannerCallback(name=status_or_scanner.scanner.name).pack(),
+            )
+        elif isinstance(status_or_scanner, Scanner):
+            button = InlineKeyboardButton(
+                text=status_or_scanner.name, callback_data=ScannerCallback(name=status_or_scanner.name).pack()
+            )
+        else:
+            assert_never(status_or_scanner)
+        keyboard.row(button)
+    return keyboard.as_markup()
 
 
 @router.callback_query(ScanWork.settings_menu, ScanConfigureCallback.filter(F.menu == "scanner"))
@@ -38,16 +67,12 @@ async def scan_options_scanner(callback: CallbackQuery, state: FSMContext, bot: 
     await start_scanner_setup(callback, state, bot)
 
 
-class ScannerCallback(CallbackData, prefix="scanner"):
-    scanner_name: str
-
-
 @router.callback_query(ScanWork.setup_scanner, ScannerCallback.filter())
 async def apply_settings_scanner(callback: CallbackQuery, callback_data: ScannerCallback, state: FSMContext, bot: Bot):
     from src.bot.routers.scanning.scanning_tools import format_configure_message
 
     await callback.answer()
-    scanner = await api_client.get_scanner(callback.message.chat.id, callback_data.scanner_name)
+    scanner = await api_client.get_scanner(callback.message.chat.id, callback_data.name)
     data = await state.get_data()
     await discard_job_settings_message(data, callback.message, state, bot)
     if scanner is None:
@@ -56,8 +81,8 @@ async def apply_settings_scanner(callback: CallbackQuery, callback_data: Scanner
 
     data = await state.update_data(scanner=scanner.name)
     assert "confirmation_message_id" in data
-    scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
-    text, markup = format_configure_message(data, scanner)
+    scanner_status = await api_client.get_scanner_status(callback.message.chat.id, data.get("scanner"))
+    text, markup = format_configure_message(data, scanner_status)
     if data.get("mode") is not None:
         await state.set_state(ScanWork.settings_menu)
     else:

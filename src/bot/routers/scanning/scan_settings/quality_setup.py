@@ -58,8 +58,8 @@ async def apply_settings_quality(
     data = await state.update_data(quality=callback_data.quality)
     await discard_job_settings_message(data, callback.message, state, bot)
     assert "confirmation_message_id" in data
-    scanner = await api_client.get_scanner(callback.message.chat.id, data.get("scanner"))
-    text, markup = format_configure_message(data, scanner)
+    scanner_status = await api_client.get_scanner_status(callback.message.chat.id, data.get("scanner"))
+    text, markup = format_configure_message(data, scanner_status)
     await state.set_state(ScanWork.settings_menu)
     await bot.edit_message_text(
         text=text, chat_id=callback.message.chat.id, message_id=data["confirmation_message_id"], reply_markup=markup
