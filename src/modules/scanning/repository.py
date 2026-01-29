@@ -123,7 +123,7 @@ class ScanningRepository:
             logger.warning(f"Scanner {scanner.name} is offline: {type(e)}")
             return True
 
-    async def scan_one_page(self, scanner: Scanner, options: ScanningOptions) -> bytes | None:
+    async def scan_one_page_debug(self, scanner: Scanner, options: ScanningOptions) -> bytes | None:
         """Scan using eSCL and return document as PDF bytes"""
         try:
             job_id = await self.start_scan_one(scanner, options)
@@ -158,11 +158,15 @@ class ScanningRepository:
                 logger.warning(f"Scanner {scanner.name} returned None document url")
                 return None
 
-            job_id = document_url.rsplit("/ScanJobs/", 1)[-1]
-            return job_id
+            return document_url[document_url.index("urn:uuid:") :]
 
     async def fetch_scan_one(self, scanner: Scanner, job_id: str) -> bytes | None:
-        document = await self.fetch_scanned_document(scanner, job_id)
+        try:
+            document = await self.fetch_scanned_document(scanner, job_id)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (404, 410):
+                return None
+            raise
         await self.delete_printer_scan_job(scanner, job_id)
         return document
 
@@ -174,11 +178,16 @@ class ScanningRepository:
             return response.content  # PDF bytes
 
     async def delete_printer_scan_job(self, scanner: Scanner, job_id: str) -> None:
-        """Delete the scan job from the printer, so nobody can download the file"""
-        async with httpx.AsyncClient(verify=False) as client:
-            logger.info(f"Scanner {scanner.name} deleting document {job_id}")
-            response = await client.delete(f"{scanner.escl}/ScanJobs/{job_id}")
-            response.raise_for_status()
+        """Delete the document from the printer via its url"""
+        try:
+            async with httpx.AsyncClient(verify=False) as client:
+                logger.info(f"Scanner {scanner.name} deleting document {job_id}")
+                response = await client.delete(f"{scanner.escl}/ScanJobs/{job_id}")
+                response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 410:
+                return
+            raise
 
 
 scanning_repository = ScanningRepository()

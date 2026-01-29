@@ -1,6 +1,6 @@
 import asyncio
 
-from aiogram import html
+from aiogram import Bot, html
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, Message
@@ -40,15 +40,36 @@ async def cancel_expiring(message: Message):
 async def mark_as_expired(message: Message, immediately: bool = False):
     await asyncio.sleep(0 if immediately else message_expiration_time)
     await edit_message_text_anyway(
-        message=message, text=f"{message.caption or message.text}\n{html.italic('This job has expired 🕒')}"
+        message_or_id=message, text=f"{message.caption or message.text}\n{html.italic('This job has expired 🕒')}"
     )
 
 
-async def edit_message_text_anyway(message: Message, text: str, reply_markup: InlineKeyboardMarkup | None = None):
-    try:
-        await message.edit_caption(caption=text, reply_markup=reply_markup)
-    except TelegramBadRequest:
+async def edit_message_text_anyway(
+    message_or_id: Message | int,
+    text: str,
+    reply_markup: InlineKeyboardMarkup | None = None,
+    chat_id: int | None = None,
+    bot: Bot | None = None,
+):
+    after_edits = None
+    if isinstance(message_or_id, Message):
         try:
-            await message.edit_text(text=text, reply_markup=reply_markup)
+            after_edits = await message_or_id.edit_caption(caption=text, reply_markup=reply_markup)
         except TelegramBadRequest:
-            pass
+            try:
+                after_edits = await message_or_id.edit_text(text=text, reply_markup=reply_markup)
+            except TelegramBadRequest:
+                pass
+    else:
+        try:
+            after_edits = await bot.edit_message_caption(
+                chat_id=chat_id, message_id=message_or_id, caption=text, reply_markup=reply_markup
+            )
+        except TelegramBadRequest:
+            try:
+                after_edits = await bot.edit_message_text(
+                    chat_id=chat_id, message_id=message_or_id, text=text, reply_markup=reply_markup
+                )
+            except TelegramBadRequest:
+                pass
+    return after_edits

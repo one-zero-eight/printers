@@ -5,6 +5,7 @@ from typing import get_args
 import httpx
 from aiogram import Bot, F, Router, flags
 from aiogram.enums import ChatAction
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import default_state
@@ -27,13 +28,17 @@ from src.bot.routers.scanning.scan_settings.sides_setup import start_scan_sides_
 from src.bot.routers.scanning.scanning_states import ScanWork, gracefully_interrupt_scanning_state
 from src.bot.routers.scanning.scanning_tools import (
     ScanConfigureCallback,
-    ScanningCallback,
     ScanningPausedCallback,
     format_configure_message,
     format_scanning_message,
     format_scanning_paused_message,
 )
-from src.bot.routers.tools import cancel_expiring, edit_message_text_anyway, make_expiring
+from src.bot.routers.tools import (
+    cancel_expiring,
+    edit_message_text_anyway,
+    ensure_same_structural_message,
+    make_expiring,
+)
 from src.bot.shared_messages import go_to_default_state
 from src.modules.scanning.entity_models import ScanningOptions
 
@@ -96,6 +101,8 @@ async def continue_scan_handler(callback: CallbackQuery, state: FSMContext, pret
     await cancel_expiring(callback.message)
     await state.set_state(ScanWork.scanning)
     data = await state.get_data()
+    text = format_scanning_message(data, None, "starting")
+    message = await edit_message_text_anyway(message, text)
     scanner_status = await api_client.get_scanner_status(message.chat.id, data.get("scanner"))
     scanning_options = ScanningOptions(
         sides="false" if data["mode"] == "manual" else data.get("scan_sides", "false"),
@@ -107,7 +114,7 @@ async def continue_scan_handler(callback: CallbackQuery, state: FSMContext, pret
     # start scanning
     try:
         scan_job_id = await api_client.start_manual_scan(message.chat.id, scanner_status.scanner, scanning_options)
-        await state.update_data(scan_job_id=scan_job_id)
+        data = await state.update_data(scan_job_id=scan_job_id)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 503:
             await message.answer("Scanner is busy. Try pressing Cancel button on the device and try again.")
@@ -120,8 +127,6 @@ async def continue_scan_handler(callback: CallbackQuery, state: FSMContext, pret
             await edit_message_text_anyway(message, text, markup)
             return
         raise
-    text, markup = format_scanning_message(data, scanner_status, "starting")
-    await edit_message_text_anyway(message, text, markup)
 
     scanning_result = asyncio.create_task(
         api_client.wait_and_merge_manual_scan(
@@ -138,14 +143,26 @@ async def continue_scan_handler(callback: CallbackQuery, state: FSMContext, pret
 
     while time.monotonic() - start_time < max_wait_time:
         iteration += 1
-        # Exit if state changed (user clicked cancel)
-        if (await state.get_state()) == default_state:
-            break
 
-        text, markup = format_scanning_message(data, scanner_status, "scanning", iteration)
-        await edit_message_text_anyway(message, text, markup)
+        # Return if the job was changed (user sent a new document or /scan)
+        try:
+            await ensure_same_structural_message(message, "confirmation_message_id", state)
+        except TelegramBadRequest:
+            await scanning_result
+            await api_client.cancel_manual_scan(message.chat.id, scanner_status.scanner, data["scan_job_id"])
+            return
+        # Return if the job was canceled
+        if (await state.get_state()) == default_state:
+            await scanning_result
+            await api_client.cancel_manual_scan(message.chat.id, scanner_status.scanner, data["scan_job_id"])
+            return
+
+        text = format_scanning_message(data, scanner_status, "scanning", iteration)
+        message = await edit_message_text_anyway(message, text)
 
         if scanning_result.done():
+            if not (scanning_result := await scanning_result):
+                return
             break
 
         # Sleep for one second before next check
@@ -161,7 +178,7 @@ async def continue_scan_handler(callback: CallbackQuery, state: FSMContext, pret
         await edit_message_text_anyway(message, text, markup)
         return
 
-    scanning_result = await scanning_result
+    await api_client.cancel_manual_scan(message.chat.id, scanner_status.scanner, data["scan_job_id"])
     data = await state.update_data(
         scan_server_name=scanning_result.filename,
         scan_result_pages_count=scanning_result.page_count,
@@ -184,18 +201,10 @@ async def send_new_started_scan_confirmation_message_handler(callback: CallbackQ
     scanner_status = await api_client.get_scanner_status(callback.message.chat.id, data.get("scanner"))
     caption, markup = format_scanning_paused_message(data, scanner_status, is_finished=True)
     await edit_message_text_anyway(callback.message, caption, markup)
-    text, markup = format_scanning_message(data, scanner_status, "starting")
-    msg = await callback.message.answer(text, reply_markup=markup)
+    text = format_scanning_message(data, scanner_status, "starting")
+    msg = await callback.message.answer(text)
     await state.update_data(confirmation_message_id=msg.message_id)
     await start_new_scan_handler(callback, state, bot, msg)
-
-
-@router.callback_query(ScanWork.scanning, ScanningCallback.filter(F.menu == "cancel"))
-async def scanning_cancel_handler(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    await callback.answer()
-    await cancel_expiring(callback.message)
-    await gracefully_interrupt_scanning_state(callback, state, bot)
-    await go_to_default_state(callback, state)
 
 
 @router.callback_query(CallbackFromConfirmationMessageFilter(), ScanningPausedCallback.filter(F.menu == "remove-last"))

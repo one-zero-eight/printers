@@ -213,6 +213,9 @@ async def start_print_handler(callback: CallbackQuery, state: FSMContext, bot: B
 
     while time.monotonic() - start_time < max_wait_time:
         iteration += 1
+
+        # Return if the job was changed (user sent a new document or /scan)
+        await ensure_same_structural_message(callback.message, "confirmation_message_id", state)
         # Exit if state changed (user clicked cancel)
         if (await state.get_state()) == default_state:
             break

@@ -7,7 +7,12 @@ from httpx import HTTPStatusError
 
 from src.bot.api import api_client
 from src.bot.logging_ import logger
-from src.bot.routers.printing.printing_tools import discard_job_settings_message, format_printing_message
+from src.bot.routers.printing.printing_tools import (
+    discard_job_settings_message,
+    format_configure_message,
+    format_printing_message,
+)
+from src.bot.routers.tools import edit_message_text_anyway
 
 
 class PrintWork(StatesGroup):
@@ -39,14 +44,15 @@ async def gracefully_interrupt_printing_state(
     ):
         await discard_job_settings_message(data, message, state, bot)
         if "confirmation_message_id" in data:
-            try:
-                await bot.edit_message_caption(
-                    caption=f"{html.bold("You've cancelled this print work 🤷‍♀️")}",
-                    chat_id=message.chat.id,
-                    message_id=data["confirmation_message_id"],
-                )
-            except TelegramBadRequest:
-                pass
+            printer_status = await api_client.get_printer_status(message.chat.id, data["printer"])
+            text, _ = format_configure_message(data, printer_status)
+            await edit_message_text_anyway(
+                data["confirmation_message_id"],
+                f"{text}\n{html.italic('This job has expired 🕒')}",
+                None,
+                message.chat.id,
+                bot,
+            )
         if "filename" in data:
             try:
                 await api_client.cancel_not_started_job(message.chat.id, data["filename"])

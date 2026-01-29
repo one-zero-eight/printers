@@ -14,10 +14,6 @@ class ScanConfigureCallback(CallbackData, prefix="scan_menu"):
     menu: Literal["mode", "scanner", "quality", "sides", "crop", "cancel", "start"]
 
 
-class ScanningCallback(CallbackData, prefix="scanning"):
-    menu: Literal["cancel"]
-
-
 class ScanningPausedCallback(CallbackData, prefix="scanning_paused"):
     menu: Literal["remove-last", "scan-more", "scan-new", "finish", "rename"]
 
@@ -100,7 +96,7 @@ def format_scanning_message(
     scanner_status: ScannerStatus | None,
     status: Literal["starting", "scanning", "cancelled"],
     iteration: int = 0,
-) -> tuple[str, InlineKeyboardMarkup | None]:
+) -> str:
     text = scan_job_summary(data, scanner_status)
     if status == "starting":
         text += html.italic("⏳ Starting...\n")
@@ -108,15 +104,9 @@ def format_scanning_message(
         text += html.italic(f"{'⤹⤿⤻⤺'[iteration % 4]} Scanning...\n")
     elif status == "cancelled":
         text += html.italic("❌ Cancelled\n")
-        return text, None
+        return text
 
-    return text, InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="Cancel", callback_data=ScanningCallback(menu="cancel").pack()),
-            ]
-        ]
-    )
+    return text
 
 
 def scan_job_summary(data: FSMData, scanner_status: ScannerStatus | None) -> str:

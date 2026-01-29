@@ -67,7 +67,7 @@ async def manual_wait_and_merge(
     scanner_name: str,
     job_id: str,
     prev_filename: str | None = None,
-) -> ScanningResult:
+) -> ScanningResult | None:
     if prev_filename and (innohassle_user_id, prev_filename) not in scanning_repository.tempfiles:
         raise HTTPException(404, "No such scan")
 
@@ -77,7 +77,7 @@ async def manual_wait_and_merge(
 
     document = await scanning_repository.fetch_scan_one(scanner, job_id)
     if not document:
-        raise HTTPException(503, "Scanner is busy or not available")
+        raise HTTPException(404, "The scan document was not found")
     if scanning_repository.retrieve_job_options(innohassle_user_id, job_id).crop == "true":
         document = autocrop_pdf_bytes(document)
 
@@ -126,7 +126,7 @@ async def manual_delete_file(
 
 
 @router.get("/debug/get_scanner_capabilities")
-async def get_scanner_capabilities(
+async def get_scanner_capabilities_debug(
     _innohassle_user_id: USER_AUTH,
     scanner_name: str,
 ):
@@ -158,7 +158,7 @@ async def scan_one_page(
     scanner = scanning_repository.get_scanner(scanner_name)
     if not scanner:
         raise HTTPException(404, "No such scanner")
-    document = await scanning_repository.scan_one_page(scanner, scanning_options)
+    document = await scanning_repository.scan_one_page_debug(scanner, scanning_options)
     if not document:
         raise HTTPException(503, "Scanner is busy or not available")
     return Response(document, media_type="application/pdf")
@@ -176,20 +176,8 @@ async def start_scan(
     return await scanning_repository.start_scan_one(scanner, options)
 
 
-@router.post("/debug/delete_printer_scan_job")
-async def delete_printer_scan_job(
-    _innohassle_user_id: USER_AUTH,
-    scanner_name: str,
-    job_id: str,
-):
-    scanner = scanning_repository.get_scanner(scanner_name)
-    if not scanner:
-        raise HTTPException(404, "No such scanner")
-    await scanning_repository.delete_printer_scan_job(scanner, job_id)
-
-
 @router.get("/debug/fetch_scanned_document")
-async def fetch_scanned_document(
+async def fetch_scanned_document_debug(
     _innohassle_user_id: USER_AUTH,
     scanner_name: str,
     job_id: str,
