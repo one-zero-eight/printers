@@ -53,7 +53,7 @@ def scanners_keyboard(statuses_and_scanners: list[ScannerStatus | Scanner]) -> I
             )
         elif isinstance(status_or_scanner, Scanner):
             button = InlineKeyboardButton(
-                text=status_or_scanner.name, callback_data=ScannerCallback(name=status_or_scanner.name).pack()
+                text=status_or_scanner.display_name, callback_data=ScannerCallback(name=status_or_scanner.name).pack()
             )
         else:
             assert_never(status_or_scanner)

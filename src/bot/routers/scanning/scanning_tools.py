@@ -84,7 +84,7 @@ def format_scanner_status(status: ScannerStatus) -> str:
     if not status:
         return "—"
     else:
-        show_text = f"{status.scanner.name}"
+        show_text = f"{status.scanner.display_name}"
         if status.offline:
             return show_text + ", ☠️ offline"
         else:
