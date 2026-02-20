@@ -42,7 +42,7 @@ def format_configure_message(data: FSMData, scanner_status: ScannerStatus | None
     text += "📠 " + html.bold(format_scanner_status(scanner_status))
 
     display_mode = button_text_align_left(f"✏️ {f'{data["mode"].capitalize()} Scan' if data['mode'] else '—'}")
-    display_scanner = button_text_align_left(f"✏️ {scanner_status.scanner.name if scanner_status else '—'}")
+    display_scanner = button_text_align_left(f"✏️ {scanner_status.scanner.display_name if scanner_status else '—'}")
     display_quality = button_text_align_left(f"✏️ {data['quality']} DPI")
     display_sides = button_text_align_left(f"✏️ {'One side' if data['scan_sides'] == 'false' else 'Both sides'}")
     display_crop = button_text_align_left(f"✏️ {'Disabled' if data['crop'] == 'false' else 'Enabled'}")
