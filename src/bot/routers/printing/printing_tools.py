@@ -51,11 +51,11 @@ def format_configure_message(
         )
     }\n"
 
-    caption += html.bold(f"🖨 {format_printer_status(status)}\n")
+    caption += html.bold(f"🖨 {format_printer_name(status)}\n")
 
     layout = {"1": "1x1", "2": "1x2", "4": "2x2", "6": "2x3", "9": "3x3", "16": "4x4"}.get(data["number_up"])
     sides = "One side" if data["sides"] == "one-sided" else "Both sides"
-    display_printer = button_text_align_left(f"✏️ {status.printer.display_name if status else '—'}")
+    display_printer = button_text_align_left(f"✏️ {format_printer_name(status, False)}")
     display_copies = button_text_align_left(f"✏️ {data['copies']}")
     display_page_ranges = button_text_align_left(f"✏️ {data['page_ranges'] if data['page_ranges'] else 'all'}")
     display_layout = button_text_align_left(f"✏️ {layout}")
@@ -92,10 +92,12 @@ def format_configure_message(
     return caption, markup
 
 
-def format_printer_status(status: PrinterStatus) -> str:
+def format_printer_name(status: PrinterStatus | None, decorated_with_status=True) -> str:
     if not status:
         return "—"
     show_text = f"{status.printer.display_name}"
+    if not decorated_with_status:
+        return show_text
     if status.offline:
         show_text += ", ☠️ Offline"
     elif status.toner_percentage is not None and status.paper_percentage is not None:

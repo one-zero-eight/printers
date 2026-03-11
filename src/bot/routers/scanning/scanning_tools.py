@@ -39,10 +39,10 @@ def format_configure_message(data: FSMData, scanner_status: ScannerStatus | None
         )
         text += "You will be able to scan multiple pages one-by-one.\n\n"
 
-    text += "📠 " + html.bold(format_scanner_status(scanner_status))
+    text += "📠 " + html.bold(format_scanner_name(scanner_status))
 
     display_mode = button_text_align_left(f"✏️ {f'{data["mode"].capitalize()} Scan' if data['mode'] else '—'}")
-    display_scanner = button_text_align_left(f"✏️ {scanner_status.scanner.display_name if scanner_status else '—'}")
+    display_scanner = button_text_align_left(f"✏️ {format_scanner_name(scanner_status, False)}")
     display_quality = button_text_align_left(f"✏️ {data['quality']} DPI")
     display_sides = button_text_align_left(f"✏️ {'One side' if data['scan_sides'] == 'false' else 'Both sides'}")
     display_crop = button_text_align_left(f"✏️ {'Disabled' if data['crop'] == 'false' else 'Enabled'}")
@@ -80,15 +80,13 @@ def format_configure_message(data: FSMData, scanner_status: ScannerStatus | None
     return text, markup
 
 
-def format_scanner_status(status: ScannerStatus) -> str:
+def format_scanner_name(status: ScannerStatus | None, decorated_with_status=True) -> str:
     if not status:
         return "—"
-    else:
-        show_text = f"{status.scanner.display_name}"
-        if status.offline:
-            return show_text + ", ☠️ offline"
-        else:
-            return show_text + ", ✔️ online"
+    show_text = f"{status.scanner.display_name}"
+    if not decorated_with_status:
+        return show_text
+    return show_text + f", {"☠️ offline" if status.offline else "✔️ online"}"
 
 
 def format_scanning_message(
@@ -110,7 +108,7 @@ def format_scanning_message(
 
 
 def scan_job_summary(data: FSMData, scanner_status: ScannerStatus | None) -> str:
-    display_scanner = html.bold(html.quote(scanner_status.scanner.name if scanner_status else "—"))
+    display_scanner = html.bold(html.quote(format_scanner_name(scanner_status, False)))
     display_quality = html.bold(html.quote(f"{data['quality']} DPI"))
     display_sides = html.bold("One side" if data["scan_sides"] == "false" else "Both sides")
     display_crop = html.bold("Disabled" if data["crop"] == "false" else "Enabled")

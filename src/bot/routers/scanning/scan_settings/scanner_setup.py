@@ -10,7 +10,7 @@ from src.bot.api import api_client
 from src.bot.routers.printing.printing_tools import discard_job_settings_message
 from src.bot.routers.scanning.scan_settings.mode_setup import start_scan_mode_setup
 from src.bot.routers.scanning.scanning_states import ScanWork
-from src.bot.routers.scanning.scanning_tools import ScanConfigureCallback, ScannerCallback, format_scanner_status
+from src.bot.routers.scanning.scanning_tools import ScanConfigureCallback, ScannerCallback, format_scanner_name
 from src.bot.routers.tools import ensure_same_structural_message
 from src.config_schema import Scanner
 from src.modules.scanning.entity_models import ScannerStatus
@@ -48,7 +48,7 @@ def scanners_keyboard(statuses_and_scanners: list[ScannerStatus | Scanner]) -> I
     for status_or_scanner in statuses_and_scanners:
         if isinstance(status_or_scanner, ScannerStatus):
             button = InlineKeyboardButton(
-                text=format_scanner_status(status_or_scanner),
+                text=format_scanner_name(status_or_scanner),
                 callback_data=ScannerCallback(name=status_or_scanner.scanner.name).pack(),
             )
         elif isinstance(status_or_scanner, Scanner):

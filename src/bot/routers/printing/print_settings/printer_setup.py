@@ -18,7 +18,7 @@ from src.bot.routers.printing.printing_tools import (
     PrinterCallback,
     discard_job_settings_message,
     format_configure_message,
-    format_printer_status,
+    format_printer_name,
 )
 from src.bot.routers.tools import ensure_same_structural_message
 from src.config_schema import Printer
@@ -64,7 +64,7 @@ def printers_keyboard(statuses_and_printers: list[PrinterStatus | Printer]) -> I
     for status_or_printer in statuses_and_printers:
         if isinstance(status_or_printer, PrinterStatus):
             button = InlineKeyboardButton(
-                text=format_printer_status(status_or_printer),
+                text=format_printer_name(status_or_printer),
                 callback_data=PrinterCallback(cups_name=status_or_printer.printer.cups_name).pack(),
             )
         elif isinstance(status_or_printer, Printer):
