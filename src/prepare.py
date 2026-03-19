@@ -60,7 +60,7 @@ def ensure_pre_commit_hooks():
 
     try:
         subprocess.run(
-            ["uvx", "pre-commit", "install", "--install-hooks", "-t", "pre-commit", "-t", "commit-msg"],
+            ["uv", "run", "prek", "install", "--overwrite", "--prepare-hooks", "-t", "pre-commit", "-t", "commit-msg"],
             check=True,
             text=True,
         )

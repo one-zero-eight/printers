@@ -27,7 +27,7 @@ async def ensure_same_structural_message(structural_message: Message, fsm_messag
 async def make_expiring(message: Message):
     task = asyncio.create_task(mark_as_expired(message), name=str(message.message_id))
     expiration_tasks.add(task)
-    task.add_done_callback(lambda elem: expiration_tasks.remove(elem))
+    task.add_done_callback(expiration_tasks.remove)
 
 
 async def cancel_expiring(message: Message):

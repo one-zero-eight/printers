@@ -1,8 +1,8 @@
-# Pre-commit configuration.
-# https://pre-commit.com
+# Prek configuration.
+# https://prek.j178.dev/configuration/
 
-# pre-commit install
-# pre-commit run --all-files
+# uv run prek install --overwrite --prepare-hooks -t pre-commit -t commit-msg
+# uv run prek run --all-files
 
 default_stages:
   - pre-commit
@@ -13,7 +13,7 @@ default_stages:
 repos:
   # Fix some errors with Ruff
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0
+    rev: v0.15.6
     hooks:
       - id: ruff
         args: [ --fix, --exit-zero ]
@@ -23,7 +23,7 @@ repos:
 
   # Lint Python files with Ruff
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0
+    rev: v0.15.6
     hooks:
       - id: ruff
         name: "ruff: linting"
