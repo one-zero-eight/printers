@@ -30,7 +30,7 @@ dependencies = [
     "aiohttp-socks>=0.10.1",
     "docaligner-docsaid>=1.1.0",
     "pymupdf>=1.26.7",
-    "prek>=0.3.6",
+    "prek>=0.3.8",
 ]
 
 [dependency-groups]

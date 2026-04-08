@@ -67,7 +67,7 @@ def ensure_pre_commit_hooks():
         print("✅ Pre-commit hooks installed successfully.")
     except subprocess.CalledProcessError as e:
         print(
-            f"❌ Error setting up pre-commit hooks:\n{e.stderr}\n  Please, setup it manually with `uvx pre-commit install --install-hooks -t pre-commit -t commit-msg`"
+            f"❌ Error setting up pre-commit hooks:\n{e.stderr}\n  Please, setup it manually with `uv run prek install --overwrite --prepare-hooks -t pre-commit -t commit-msg`"
         )
 
 
