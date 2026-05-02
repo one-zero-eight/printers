@@ -138,7 +138,7 @@ async def get_scanner_capabilities_debug(
 
 
 @router.get("/debug/get_scanners_status")
-async def get_printers_status(_innohassle_user_id: USER_AUTH) -> list[ScannerStatus]:
+async def get_scanners_status(_innohassle_user_id: USER_AUTH) -> list[ScannerStatus]:
     result: list[ScannerStatus] = await asyncio.gather(
         *(scanning_repository.get_scanner_status(scanner) for scanner in settings.api.scanners_list)
     )
