@@ -24,16 +24,20 @@ async def get_current_user_auth(bearer: HTTPAuthorizationCredentials | None = De
     token = bearer and bearer.credentials
     if not token:
         raise IncorrectCredentialsException(no_credentials=True)
-    try:  # Authorization: Bearer <JWT token>
-        token_data = inh_accounts.decode_token(token)
-        if token_data is None:
-            raise IncorrectCredentialsException(no_credentials=False)
+
+    # Check bot authorization:
+    # Authorization: Bearer <user_telegram_id:BOT_TOKEN>
+    bot_auth = await verify_bot_token(token)
+    if bot_auth:
+        return bot_auth
+
+    # Check user authorization:
+    # Authorization: Bearer <JWT token>
+    token_data = inh_accounts.decode_token(token)
+    if token_data:
         return token_data.innohassle_id
-    except IncorrectCredentialsException:  # Authorization: Bearer <user_telegram_id:BOT_TOKEN>
-        token_data = await verify_bot_token(token)
-        if token_data is None:
-            raise IncorrectCredentialsException(no_credentials=False)
-        return token_data
+
+    raise IncorrectCredentialsException(no_credentials=False)
 
 
 async def verify_bot_token(token: str) -> str | None:
