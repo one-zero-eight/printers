@@ -6,7 +6,8 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.api.exceptions import IncorrectCredentialsException
-from src.modules.tokens.repository import TokenRepository
+from src.config import settings
+from src.modules.inh_accounts_sdk import inh_accounts
 
 bearer_scheme = HTTPBearer(
     scheme_name="Bearer",
@@ -24,10 +25,26 @@ async def get_current_user_auth(bearer: HTTPAuthorizationCredentials | None = De
     if not token:
         raise IncorrectCredentialsException(no_credentials=True)
     try:  # Authorization: Bearer <JWT token>
-        token_data = await TokenRepository.verify_user_token(token, IncorrectCredentialsException())
+        token_data = inh_accounts.decode_token(token)
+        if token_data is None:
+            raise IncorrectCredentialsException(no_credentials=False)
+        return token_data.innohassle_id
     except IncorrectCredentialsException:  # Authorization: Bearer <user_telegram_id:BOT_TOKEN>
-        token_data = await TokenRepository.verify_bot_token(token, IncorrectCredentialsException())
-    return token_data
+        token_data = await verify_bot_token(token)
+        if token_data is None:
+            raise IncorrectCredentialsException(no_credentials=False)
+        return token_data
+
+
+async def verify_bot_token(token: str) -> str | None:
+    if token.endswith(settings.bot.bot_token.get_secret_value()):
+        telegram_id = token[: -len(settings.bot.bot_token.get_secret_value())]
+        if telegram_id:
+            telegram_id = int(telegram_id.strip(":"))
+            innohassle_user = await inh_accounts.get_user(telegram_id=telegram_id)
+            if innohassle_user:
+                return innohassle_user.id
+    return None
 
 
 USER_AUTH = Annotated[str, Depends(get_current_user_auth)]

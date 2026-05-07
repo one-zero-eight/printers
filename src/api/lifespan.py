@@ -46,9 +46,9 @@ async def lifespan(_app: FastAPI):
     # Application startup
     motor_client = await setup_database()
 
-    from src.modules.innohassle_accounts import innohassle_accounts  # noqa: E402
+    from src.modules.inh_accounts_sdk import inh_accounts  # noqa: E402
 
-    await innohassle_accounts.update_key_set()
+    await inh_accounts.update_key_set()
 
     for rubbish in glob.glob("tmp/*"):
         if "gitkeep" not in rubbish:
