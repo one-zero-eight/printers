@@ -27,11 +27,17 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libcups2 \
         cups-client \
-        libturbojpeg0 \
         exiftool \
         ffmpeg \
         libheif-dev \
     && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        wget \
+    && rm -rf /var/lib/apt/lists/* && \
+    wget https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.4.1/libjpeg-turbo-official_3.1.4.1_amd64.deb -O /tmp/libjpeg.deb && \
+    apt-get install /tmp/libjpeg.deb && \
+    rm /tmp/libjpeg.deb
 
 # Copy the applicant from the builder
 COPY --from=builder /app /app
