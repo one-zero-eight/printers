@@ -39,6 +39,7 @@ mongo = ["beanie>=1.30.0,<2", "motor>=3.7.1,<4"]
 
 [tool.uv]
 default-groups = ["mongo"]
+constraint-dependencies = ["urllib3>=2.7.0"]
 
 [tool.ruff]
 line-length = 120
