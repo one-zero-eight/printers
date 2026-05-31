@@ -43,7 +43,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-secret}
 
   unoserver:
-    image: ghcr.io/unoconv/unoserver-docker
+    image: danillatency/unoserver-docker-auto:latest
     restart: no
     ports:
       - "2003:2003"
