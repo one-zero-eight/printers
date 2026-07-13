@@ -82,7 +82,7 @@ async def prepare_printing(file: UploadFile, innohassle_user_id: USER_AUTH) -> P
         f.write(await file.read())
         printing_repository.store_tempfile(innohassle_user_id, f)
         return PreparePrintingResponse(filename=Path(f.name).name, pages=len(PyPDF2.PdfReader(f).pages))
-    elif ext in [".doc", ".docx", ".png", ".txt", ".jpg", ".md", ".bmp", ".xlsx", ".xls", ".odt", ".ods"]:
+    elif ext in [".doc", ".docx", ".png", ".txt", ".jpg", ".jpeg", ".md", ".bmp", ".xlsx", ".xls", ".odt", ".ods"]:
         with (
             tempfile.NamedTemporaryFile(dir=settings.api.temp_dir, suffix=ext) as in_f,
             tempfile.NamedTemporaryFile(dir=settings.api.temp_dir, suffix=".pdf", delete=False) as out_f,
