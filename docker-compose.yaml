@@ -4,17 +4,17 @@
 # docker compose up --build --wait
 
 services:
-  bot:
+  printers-bot:
     build: .
     restart: no
     depends_on:
-      api:
+      printers-api:
         condition: service_started
     volumes:
       - "./settings.yaml:/app/settings.yaml:ro" # Read-only settings file
     command: [ "python3", "-m", "src.bot" ]
 
-  api:
+  printers-api:
     build: .
     restart: no
     depends_on:
