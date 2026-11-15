@@ -27,6 +27,7 @@ dependencies = [
     "beautifulsoup4>=4.14.3",
     "cachetools>=7.1.1",
     "aiogram-media-group>=0.5.1",
+    "aiohttp>=3.11",
     "aiohttp-socks>=0.11.0",
     "docaligner-docsaid>=1.1.1",
     "pymupdf>=1.27.2.3",

@@ -3,7 +3,6 @@ import asyncio
 import motor.motor_asyncio
 from aiogram import Bot, html
 from aiogram.client.default import DefaultBotProperties
-from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.storage.mongo import MongoStorage
@@ -30,6 +29,7 @@ from src.bot.routers.scanning.scanning import router as scanning_router
 from src.bot.routers.unauthenticated import router as unauthenticated_router
 from src.bot.shared_messages import usual_error_answer
 from src.config import settings
+from src.session import create_session
 
 
 async def main() -> None:
@@ -42,9 +42,7 @@ async def main() -> None:
     dispatcher = CustomDispatcher(storage=storage)
     if settings.bot.proxy_url:
         logger.info("Using proxy")
-        session = AiohttpSession(proxy=settings.bot.proxy_url.get_secret_value())
-    else:
-        session = None
+    session = create_session(settings.bot.proxy_url.get_secret_value() if settings.bot.proxy_url else None)
     bot = Bot(
         token=settings.bot.bot_token.get_secret_value(),
         session=session,
